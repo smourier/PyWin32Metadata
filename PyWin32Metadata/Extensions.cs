@@ -6,9 +6,6 @@ namespace PyWin32Metadata
 {
     public static class Extensions
     {
-        public static readonly (string, string) IUnknownFullName = ("Windows.Win32.System.Com", "IUnknown");
-        public static readonly (string, string) IDispatchFullName = ("Windows.Win32.System.Com", "IDispatch");
-
         public static (string, string) GetFullName(this MetadataReader reader, InterfaceImplementationHandle implementation) => GetFullName(reader, reader.GetTypeReference((TypeReferenceHandle)reader.GetInterfaceImplementation(implementation).Interface));
         public static (string, string) GetFullName(this MetadataReader reader, InterfaceImplementation implementation) => GetFullName(reader, reader.GetTypeReference((TypeReferenceHandle)implementation.Interface));
         public static (string, string) GetFullName(this MetadataReader reader, TypeReference type)
@@ -27,6 +24,7 @@ namespace PyWin32Metadata
 
         public static MemberReference GetMember(this MetadataReader reader, CustomAttribute attribute) => reader.GetMemberReference((MemberReferenceHandle)attribute.Constructor);
         public static TypeReference GetType(this MetadataReader reader, CustomAttribute attribute) => reader.GetTypeReference((TypeReferenceHandle)GetMember(reader, attribute).Parent);
+        public static (string, string) GetFullName(this MetadataReader reader, CustomAttributeHandle attribute) => GetFullName(reader, GetType(reader, reader.GetCustomAttribute(attribute)));
         public static (string, string) GetFullName(this MetadataReader reader, CustomAttribute attribute) => GetFullName(reader, GetType(reader, attribute));
         public static CustomAttributeValue<object?> GetValue(this MetadataReader reader, CustomAttribute attribute) => attribute.DecodeValue(CustomAttributeTypeProvider.Instance);
 
