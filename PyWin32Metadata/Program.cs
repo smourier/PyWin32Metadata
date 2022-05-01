@@ -122,6 +122,9 @@ namespace PyWin32Metadata
 
             foreach (var pi in interfaces)
             {
+                if (pi.Value.Name == "IAntimalwareProvider")
+                {
+                }
                 Console.WriteLine(pi.Value.GenerateCppDeclaration());
             }
             return;

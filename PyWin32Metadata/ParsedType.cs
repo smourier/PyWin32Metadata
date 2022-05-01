@@ -4,7 +4,12 @@ namespace PyWin32Metadata
 {
     public class ParsedType : IEquatable<ParsedType>
     {
+        public static readonly (string, string) IUnknownFullName = ("Windows.Win32.System.Com", "IUnknown");
+        public static readonly (string, string) IDispatchFullName = ("Windows.Win32.System.Com", "IDispatch");
+        public static readonly (string, string) HRESULTFullName = ("Windows.Win32.Foundation", "HRESULT");
+
         public ParsedType(Type type)
+
             : this((type.Namespace ?? string.Empty, type.Name))
         {
         }
@@ -22,6 +27,9 @@ namespace PyWin32Metadata
         public string WithPointersName => Name + new string('*', Pointers);
         public string CppWithPointersName => CppName + new string('*', Pointers);
         public ParsedType PointerType => new ParsedType(FullName) { Pointers = Pointers + 1 };
+        public bool IsUnknown => FullName == IUnknownFullName;
+        public bool IsDispatch => FullName == IDispatchFullName;
+        public bool IsHRESULT => FullName == HRESULTFullName;
 
         public string CppName
         {

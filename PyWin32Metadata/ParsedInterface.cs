@@ -8,9 +8,6 @@ namespace PyWin32Metadata
 {
     public class ParsedInterface : ParsedType
     {
-        public static readonly (string, string) IUnknownFullName = ("Windows.Win32.System.Com", "IUnknown");
-        public static readonly (string, string) IDispatchFullName = ("Windows.Win32.System.Com", "IDispatch");
-
         private readonly List<ParsedMethod> _methods = new();
 
         public ParsedInterface((string, string) fullName, (string, string) baseFullName)
@@ -20,9 +17,7 @@ namespace PyWin32Metadata
         }
 
         public (string, string) BaseFullName { get; }
-        public ParsedInterface? BaseInterface { get; set;}
-        public bool IsUnknown => FullName == IUnknownFullName;
-        public bool IsDispatch => FullName == IDispatchFullName;
+        public ParsedInterface? BaseInterface { get; set; }
         public IList<ParsedMethod> Methods => _methods;
 
         public IEnumerable<ParsedInterface> AllInterfaces
@@ -118,7 +113,18 @@ namespace PyWin32Metadata
                 writer.WriteLine($"// {bi.Name}");
                 foreach (var method in bi.Methods)
                 {
-                    writer.WriteLine($"STDMETHOD({method.Name})({string.Join(", ", method.Parameters.Select(p => p.GenerateCppMethodSignature()))});");
+                    if (method.ReturnType == null)
+                        throw new InvalidOperationException();
+
+                    var parameters = string.Join(", ", method.Parameters.Select(p => p.GenerateCppMethodSignature()));
+                    if (!method.ReturnType.IsHRESULT)
+                    {
+                        writer.WriteLine($"STDMETHOD_({method.ReturnType.CppName}, {method.Name})({parameters});");
+                    }
+                    else
+                    {
+                        writer.WriteLine($"STDMETHOD({method.Name})({parameters});");
+                    }
                     writer.WriteLine();
                 }
             }
