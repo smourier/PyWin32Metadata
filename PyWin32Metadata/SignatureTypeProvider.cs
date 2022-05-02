@@ -6,7 +6,7 @@ namespace PyWin32Metadata
 {
     public class SignatureTypeProvider : ISignatureTypeProvider<ParsedType, object?>
     {
-        public ParsedType GetPointerType(ParsedType elementType) => new ParsedType(elementType.FullName) { Pointers = elementType.Pointers + 1 };
+        public ParsedType GetPointerType(ParsedType elementType) => new ParsedType(elementType.FullName) { Indirections = elementType.Indirections + 1 };
         public ParsedType GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind) => new ParsedType(reader.GetFullName(reader.GetTypeDefinition(handle)));
         public ParsedType GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind) => new ParsedType(reader.GetFullName(reader.GetTypeReference(handle)));
         public ParsedType GetPrimitiveType(PrimitiveTypeCode typeCode)

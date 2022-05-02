@@ -20,13 +20,13 @@ namespace PyWin32Metadata
         }
 
         public (string, string) FullName { get; }
-        public int Pointers { get; set; }
+        public int Indirections { get; set; }
         public string Name => FullName.Item2;
         public string Namespace => FullName.Item1;
         public string FullNameString => Namespace + "." + Name;
-        public string WithPointersName => Name + new string('*', Pointers);
-        public string CppWithPointersName => CppName + new string('*', Pointers);
-        public ParsedType PointerType => new ParsedType(FullName) { Pointers = Pointers + 1 };
+        public string WithIndirectionsName => Name + new string('*', Indirections);
+        public string CppWithIndirectionsName => CppName + new string('*', Indirections);
+        public ParsedType PointerType => new ParsedType(FullName) { Indirections = Indirections + 1 };
         public bool IsUnknown => FullName == IUnknownFullName;
         public bool IsDispatch => FullName == IDispatchFullName;
         public bool IsHRESULT => FullName == HRESULTFullName;
@@ -86,7 +86,7 @@ namespace PyWin32Metadata
 
         public override int GetHashCode() => FullName.GetHashCode();
         public override bool Equals(object? obj) => Equals(obj as ParsedType);
-        public bool Equals(ParsedType? other) => other != null && other.FullName == FullName && other.Pointers == Pointers;
-        public override string ToString() => WithPointersName;
+        public bool Equals(ParsedType? other) => other != null && other.FullName == FullName && other.Indirections == Indirections;
+        public override string ToString() => WithIndirectionsName;
     }
 }

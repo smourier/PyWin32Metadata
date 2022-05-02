@@ -113,21 +113,18 @@ namespace PyWin32Metadata
                         if (p.Type != null && interfaces.TryGetValue(p.Type.FullName, out var piface))
                         {
                             // a .NET interface is not marked as of pointer type, but it is, for C++
-                            var refType = new ParsedType(piface.FullName) { Pointers = p.Type.Pointers + 1 };
+                            var refType = new ParsedType(piface.FullName) { Indirections = p.Type.Indirections + 1 };
                             p.Type = refType;
                         }
                     }
                 }
             }
 
-            foreach (var pi in interfaces)
-            {
-                if (pi.Value.Name == "IAntimalwareProvider")
-                {
-                }
-                Console.WriteLine(pi.Value.GenerateCppDeclaration());
-            }
-            return;
+            //foreach (var pi in interfaces)
+            //{
+            //    Console.WriteLine(pi.Value.GenerateCppDeclaration());
+            //}
+            //return;
 
             DumpShell("IShellItem");
             DumpShell("IShellItem2");
@@ -138,6 +135,7 @@ namespace PyWin32Metadata
             {
                 var ifa = interfaces[(ns, n)];
                 Console.WriteLine(ifa.GenerateCppDeclaration());
+                Console.WriteLine(ifa.GenerateCppImplementation());
             }
         }
     }

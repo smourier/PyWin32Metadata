@@ -27,11 +27,12 @@ namespace PyWin32Metadata
         public int SequenceNumber { get; }
         public IList<ParsedCustomAttribute> CustomAttributes => _customAttributes;
         public bool IsConst => CustomAttributes.Any(a => a.FullName == ("Windows.Win32.Interop", "ConstAttribute"));
+        public bool IsOut => Attributes.HasFlag(ParameterAttributes.Out);
 
         public string GenerateCppMethodSignature()
         {
             var cas = IsConst ? "const" : string.Empty;
-            var typeName = Type?.CppWithPointersName ?? "???";
+            var typeName = Type?.CppWithIndirectionsName ?? "???";
             var list = new List<string>
             {
                 cas,
@@ -44,7 +45,7 @@ namespace PyWin32Metadata
         public override string ToString()
         {
             var cas = string.Join(string.Empty, CustomAttributes.Select(a => "[" + a.ShortName + "]"));
-            var typeName = Type?.CppWithPointersName ?? "???";
+            var typeName = Type?.CppWithIndirectionsName ?? "???";
             var list = new List<string>
             {
                 cas,
