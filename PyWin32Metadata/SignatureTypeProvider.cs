@@ -6,6 +6,13 @@ namespace PyWin32Metadata
 {
     public class SignatureTypeProvider : ISignatureTypeProvider<ParsedType, object?>
     {
+        public static readonly SignatureTypeProvider Instance = new SignatureTypeProvider();
+
+        private SignatureTypeProvider()
+        {
+        }
+
+        public ParsedType GetArrayType(ParsedType elementType, ArrayShape shape) => new ParsedType(elementType.FullName) { ArrayShape = shape };
         public ParsedType GetPointerType(ParsedType elementType) => new ParsedType(elementType.FullName) { Indirections = elementType.Indirections + 1 };
         public ParsedType GetTypeFromDefinition(MetadataReader reader, TypeDefinitionHandle handle, byte rawTypeKind) => new ParsedType(reader.GetFullName(reader.GetTypeDefinition(handle)));
         public ParsedType GetTypeFromReference(MetadataReader reader, TypeReferenceHandle handle, byte rawTypeKind) => new ParsedType(reader.GetFullName(reader.GetTypeReference(handle)));
@@ -67,7 +74,6 @@ namespace PyWin32Metadata
 
         public ParsedType GetTypeFromSpecification(MetadataReader reader, object? genericContext, TypeSpecificationHandle handle, byte rawTypeKind) => throw new NotImplementedException();
         public ParsedType GetSZArrayType(ParsedType elementType) => throw new NotImplementedException();
-        public ParsedType GetArrayType(ParsedType elementType, ArrayShape shape) => throw new NotImplementedException();
         public ParsedType GetByReferenceType(ParsedType elementType) => throw new NotImplementedException();
         public ParsedType GetFunctionPointerType(MethodSignature<ParsedType> signature) => throw new NotImplementedException();
         public ParsedType GetGenericInstantiation(ParsedType genericType, ImmutableArray<ParsedType> typeArguments) => throw new NotImplementedException();

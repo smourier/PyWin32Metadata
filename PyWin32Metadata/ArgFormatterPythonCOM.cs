@@ -2,8 +2,8 @@
 {
     public class ArgFormatterPythonCOM : ArgFormatter
     {
-        public ArgFormatterPythonCOM(ParsedParameter parameter, int builtinIndirection, int declaredIndirection = 0)
-            : base(parameter, builtinIndirection, declaredIndirection)
+        public ArgFormatterPythonCOM(GeneratorContext context, ParsedParameter parameter, int builtinIndirection, int declaredIndirection = 0)
+            : base(context, parameter, builtinIndirection, declaredIndirection)
         {
         }
 

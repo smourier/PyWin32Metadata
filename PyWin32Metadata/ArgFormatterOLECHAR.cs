@@ -4,8 +4,8 @@ namespace PyWin32Metadata
 {
     public class ArgFormatterOLECHAR : ArgFormatterPythonCOM
     {
-        public ArgFormatterOLECHAR(ParsedParameter parameter, int builtinIndirection, int declaredIndirection = 0)
-            : base(parameter, builtinIndirection, declaredIndirection)
+        public ArgFormatterOLECHAR(GeneratorContext context, ParsedParameter parameter, int builtinIndirection, int declaredIndirection = 0)
+            : base(context, parameter, builtinIndirection, declaredIndirection)
         {
         }
 

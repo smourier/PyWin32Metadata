@@ -9,25 +9,25 @@ namespace PyWin32Metadata
     {
         private readonly List<ParsedCustomAttribute> _customAttributes = new();
 
-        public ParsedParameter(ParsedMethod parent, string name, ParameterAttributes attributes, int sequenceNumber)
+        public ParsedParameter(ParsedMethod? parent, string name, ParameterAttributes attributes, int sequenceNumber)
         {
-            if (parent == null)
-                throw new ArgumentNullException(nameof(parent));
-
-            Parent = parent;
+            Parent = parent; // can be null
             Name = name;
             Attributes = attributes;
             SequenceNumber = sequenceNumber;
+            Type = new ParsedType(("???", "???")); // will be setup after
         }
 
-        public ParsedMethod Parent { get; }
+        public ParsedMethod? Parent { get; }
         public string Name { get; }
-        public ParsedType? Type { get; set; }
+        public ParsedType Type { get; set; }
         public ParameterAttributes Attributes { get; }
         public int SequenceNumber { get; }
         public IList<ParsedCustomAttribute> CustomAttributes => _customAttributes;
         public bool IsConst => CustomAttributes.Any(a => a.FullName == ("Windows.Win32.Interop", "ConstAttribute"));
         public bool IsOut => Attributes.HasFlag(ParameterAttributes.Out);
+        public bool IsIn => Attributes.HasFlag(ParameterAttributes.In);
+        public bool IsOptional => Attributes.HasFlag(ParameterAttributes.Optional);
 
         public string GenerateCppMethodSignature()
         {

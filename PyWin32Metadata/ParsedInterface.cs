@@ -307,12 +307,21 @@ namespace PyWin32Metadata
 
                 if (codePost.Count > 0)
                 {
-                    writer.WriteLine("BOOL bPythonIsHappy = TRUE;");
+                    var needsHappy = codePost.Any(p => p.Contains("bPythonIsHappy"));
+                    if (needsHappy)
+                    {
+                        writer.WriteLine("BOOL bPythonIsHappy = TRUE;");
+                    }
+
                     foreach (var cp in codePost)
                     {
                         writer.WriteLine(cp);
                     }
-                    writer.WriteLine("if (!bPythonIsHappy) return NULL;");
+
+                    if (needsHappy)
+                    {
+                        writer.WriteLine("if (!bPythonIsHappy) return NULL;");
+                    }
                 }
 
                 writer.WriteLine("HRESULT hr;");
@@ -333,13 +342,13 @@ namespace PyWin32Metadata
 
                 writer.WriteLine("if ( FAILED(hr) )");
                 writer.Indent++;
-                writer.WriteLine($"return PyCom_BuildPyException(hr, {ptr}, IID_{Name} );");
+                writer.WriteLine($"return PyCom_BuildPyException(hr, {ptr}, IID_{Name});");
                 writer.Indent--;
 
                 string? codePre = null;
                 codePost.Clear();
                 formatChars = null;
-                string? codeVarsPass = null;
+                var codeVarsPass = new List<string>();
                 string? codeDecl = null;
 
                 foreach (var p in method.Parameters)
@@ -359,17 +368,35 @@ namespace PyWin32Metadata
                     {
                         formatChars += formatChar;
                         codePre += cvt.GetBuildForInterfacePreCode();
-                        codePost.Add(cvt.GetBuildForInterfacePostCode());
-                        codeVarsPass += ", " + cvt.GetBuildValueArg();
+                        var cp = cvt.GetBuildForInterfacePostCode();
+                        if (cp != null)
+                        {
+                            codePost.Add(cp);
+                        }
+
+                        var a = cvt.GetBuildValueArg();
+                        if (a != null)
+                        {
+                            codeVarsPass.Add(a);
+                        }
+
                         codeDecl += cvt.DeclareParseArgTupleInputConverter();
                     }
                 }
 
                 if (formatChars != null)
                 {
-                    writer.WriteLine(codeDecl);
-                    writer.WriteLine(codePre);
-                    writer.WriteLine($"PyObject *pyretval = Py_BuildValue(\"{formatChars}\"{codeVarsPass});");
+                    if (codeDecl != null)
+                    {
+                        writer.WriteLine(codeDecl);
+                    }
+
+                    if (codePre != null)
+                    {
+                        writer.WriteLine(codePre);
+                    }
+
+                    writer.WriteLine($"PyObject *pyretval = Py_BuildValue(\"{formatChars}\", {string.Join(", ", codeVarsPass)});");
                     foreach (var cp in codePost)
                     {
                         writer.WriteLine(cp);
@@ -413,6 +440,10 @@ namespace PyWin32Metadata
             {
                 if (method.ReturnType == null)
                     throw new InvalidOperationException();
+
+                if (method.Name == "TranslateAccelerator")
+                {
+                }
 
                 var parameters = string.Join(", ", method.Parameters.Select(p => p.GenerateCppMethodSignature()));
                 var sig = $"PyG{Name}::{method.Name}({parameters})";
@@ -577,12 +608,21 @@ namespace PyWin32Metadata
 
                     if (codePost.Count > 0)
                     {
-                        writer.WriteLine("BOOL bPythonIsHappy = TRUE;");
+                        var needsHappy = codePost.Any(p => p.Contains("bPythonIsHappy"));
+                        if (needsHappy)
+                        {
+                            writer.WriteLine("BOOL bPythonIsHappy = TRUE;");
+                        }
+
                         foreach (var cp in codePost)
                         {
                             writer.WriteLine(cp);
                         }
-                        writer.WriteLine($"if (!bPythonIsHappy) hr = MAKE_PYCOM_GATEWAY_FAILURE_CODE(\"{method.Name}\");");
+
+                        if (needsHappy)
+                        {
+                            writer.WriteLine($"if (!bPythonIsHappy) hr = MAKE_PYCOM_GATEWAY_FAILURE_CODE(\"{method.Name}\");");
+                        }
                     }
 
                     writer.WriteLine("Py_DECREF(result);");

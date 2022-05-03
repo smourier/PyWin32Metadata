@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace PyWin32Metadata
 {
@@ -48,6 +49,30 @@ namespace PyWin32Metadata
             { "PWSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
             { "LPCSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
             { "PCSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
+
+            { "HANDLE", (typeof(ArgFormatterHANDLE), 0, 0) },
+            
+            { "CLSID", (typeof(ArgFormatterIID), 0, 0) },
+            { "IID", (typeof(ArgFormatterIID), 0, 0) },
+            { "GUID", (typeof(ArgFormatterIID), 0, 0) },
+            { "const GUID", (typeof(ArgFormatterIID), 0, 0) },
+            { "const IID", (typeof(ArgFormatterIID), 0, 0) },
+            { "REFCLSID", (typeof(ArgFormatterIID), 0, 0) },
+            { "REFIID", (typeof(ArgFormatterIID), 0, 0) },
+            { "REFGUID", (typeof(ArgFormatterIID), 0, 0) },
+
+
+            { "HWND", (typeof(ArgFormatterLONG_PTR), 1, 0) },
+            { "HMENU", (typeof(ArgFormatterLONG_PTR), 1, 0) },
+            { "HOLEMENU", (typeof(ArgFormatterLONG_PTR), 1, 0) },
+            { "HICON", (typeof(ArgFormatterLONG_PTR), 1, 0) },
+            { "HDC", (typeof(ArgFormatterLONG_PTR), 1, 0) },
+            { "LPARAM", (typeof(ArgFormatterLONG_PTR), 1, 0) },
+            { "WPARAM", (typeof(ArgFormatterLONG_PTR), 1, 0) },
+            { "LRESULT", (typeof(ArgFormatterLONG_PTR), 1, 0) },
+
+            // .NET
+            { "Guid", (typeof(ArgFormatterIID), 0, 0) },
         };
 
         protected static string IndirectPrefix(int indirectionFrom, int indirectionTo)
@@ -79,15 +104,16 @@ namespace PyWin32Metadata
                 throw new InvalidOperationException();
 
             if (context.Interfaces.ContainsKey(parameter.Type.FullName))
-                return new ArgFormatterInterface(parameter);
+                return new ArgFormatterInterface(context, parameter);
 
             if (_convertSimpleTypes.TryGetValue(parameter.Type.Name, out var converter))
-                return new ArgFormatterSimple(parameter, converter.Item1, converter.Item2, converter.Item3);
+                return new ArgFormatterSimple(context, parameter, converter.Item1, converter.Item2, converter.Item3);
 
             if (_allConverters.TryGetValue(parameter.Type.Name, out var converter2))
             {
                 var args = new List<object>
                 {
+                    context,
                     parameter,
                     converter2.Item2,
                     converter2.Item3
@@ -95,24 +121,47 @@ namespace PyWin32Metadata
                 return Activator.CreateInstance(converter2.Item1, args.ToArray()) as ArgFormatter;
             }
 
+            if (context.Handles.Contains(parameter.Type.FullName))
+                return new ArgFormatterLONG_PTR(context, parameter, 1, 0);
+
+            if (context.Functions.Contains(parameter.Type.FullName))
+                return new ArgFormatterLONG_PTR(context, parameter, 1, 0);
+
+            if (parameter.Type.CppWithIndirectionsName == "void*")
+                return new ArgFormatterLONG_PTR(context, parameter, 1, 0);
+
+            if (context.Structures.TryGetValue(parameter.Type.FullName, out var ps))
+                return new ArgFormatterStruct(context, parameter, ps, null);
+
             if (!_notFound.Contains(parameter.Type.FullNameString))
             {
-                _notFound.Add(parameter.Type.FullNameString);
-                Console.WriteLine("Not Found: " + parameter.Type.FullNameString);
+                //var type = context.Reader.TypeDefinitions.FirstOrDefault(h => context.Reader.GetFullName(h) == parameter.Type.FullName);
+                //if (type.IsNil)
+                {
+                    _notFound.Add(parameter.Type.FullNameString);
+                    Console.WriteLine("Not Found: " + parameter.Type.FullNameString);
+                }
+
+                //var fn = context.Reader.GetFullName(type);
             }
             return null;
         }
 
-        protected ArgFormatter(ParsedParameter parameter, int? builtinIndirection, int declaredIndirection = 0)
+        protected ArgFormatter(GeneratorContext context, ParsedParameter parameter, int? builtinIndirection, int declaredIndirection = 0)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
             if (parameter == null)
                 throw new ArgumentNullException(nameof(parameter));
 
+            Context = context;
             Parameter = parameter;
             BuiltinIndirection = builtinIndirection;
             DeclaredIndirection = declaredIndirection;
         }
 
+        public GeneratorContext Context { get; }
         public ParsedParameter Parameter { get; }
         public int? BuiltinIndirection { get; }
         public int DeclaredIndirection { get; }
@@ -137,7 +186,7 @@ namespace PyWin32Metadata
                 indirectFrom = GetDeclaredIndirections() + BuiltinIndirection;
             }
 
-            return IndirectPrefix(indirectFrom.Value, indirectionTo) + Parameter.Name;
+            return IndirectPrefix(indirectFrom.GetValueOrDefault(), indirectionTo) + Parameter.Name;
         }
 
         public virtual string GetBuildValueArg() => Parameter.Name;
@@ -155,7 +204,7 @@ namespace PyWin32Metadata
         public virtual string? GetInterfaceArgCleanup() => $"/* GetInterfaceArgCleanup output goes here: {Parameter.Name} */";
         public virtual string? GetInterfaceArgCleanupGIL() => $"/* GetInterfaceArgCleanup (GIL held) output goes here: {Parameter.Name} */";
         public virtual string? DeclareParseArgTupleInputConverter() => $"/* Declare ParseArgTupleInputConverter goes here: {Parameter.Name} */";
-        
+
         public virtual IEnumerable<string> GetParsePostCode()
         {
             yield return $"/* GetParsePostCode code goes here: {Parameter.Name} */";
@@ -165,7 +214,7 @@ namespace PyWin32Metadata
         public virtual string? GetBuildForGatewayPreCode()
         {
             var s = GetBuildForInterfacePreCode();
-            if (s.Substring(0, 4) == "/* G")
+            if (s?.Substring(0, 4) == "/* G")
                 return $"/* GetBuildForGatewayPreCode goes here: {Parameter.Name} */";
 
             return s;
@@ -175,7 +224,7 @@ namespace PyWin32Metadata
         public virtual string? GetBuildForGatewayPostCode()
         {
             var s = GetBuildForInterfacePostCode();
-            if (s.Substring(0, 4) == "/* G")
+            if (s?.Substring(0, 4) == "/* G")
                 return $"/* GetBuildForGatewayPostCode goes here: {Parameter.Name} */";
 
             return s;

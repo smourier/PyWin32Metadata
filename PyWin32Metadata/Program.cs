@@ -18,13 +18,44 @@ namespace PyWin32Metadata
             using var pe = new PEReader(stream);
             var reader = pe.GetMetadataReader();
 
-            var ctx = new GeneratorContext();
-
+            var ctx = new GeneratorContext(reader);
             var count = 0;
-            // we only get interfaces
-            foreach (var type in reader.TypeDefinitions.Select(reader.GetTypeDefinition).Where(t => t.Attributes.HasFlag(TypeAttributes.Interface)))
+            foreach (var type in reader.TypeDefinitions.Select(reader.GetTypeDefinition))
             {
                 var fn = reader.GetFullName(type);
+
+                // HFONT, etc.
+                if (reader.IsHandle(type))
+                {
+                    ctx.Handles.Add(fn);
+                    continue;
+                }
+
+                // LPFNXX, etc.
+                if (reader.IsFunction(type))
+                {
+                    ctx.Functions.Add(fn);
+                    continue;
+                }
+
+                // structs
+                if (reader.IsStructure(type))
+                {
+                    var ps = new ParsedStructure(fn);
+                    ctx.Structures[ps.FullName] = ps;
+
+                    var fields = type.GetFields();
+                    foreach (var f in fields)
+                    {
+                        var field = reader.GetFieldDefinition(f);
+                        var pf = new ParsedField(ps, reader.GetString(field.Name), field.DecodeSignature(SignatureTypeProvider.Instance, null));
+                        ps.Fields.Add(pf);
+                    }
+                    continue;
+                }
+
+                if (!type.Attributes.HasFlag(TypeAttributes.Interface))
+                    continue;
 
                 // do they have a guid attribute?
                 var guid = reader.GetInteropGuid(type);
@@ -42,7 +73,7 @@ namespace PyWin32Metadata
                     foreach (var iface in bt)
                     {
                         var ifn = reader.GetFullName(iface);
-                        if (ifn == ParsedInterface.IUnknownFullName)
+                        if (ifn == ParsedType.IUnknownFullName)
                             continue;
 
                         baseInterfaces.Add(ifn);
@@ -52,7 +83,7 @@ namespace PyWin32Metadata
                 // make sure we at least have IUnknown
                 if (baseInterfaces.Count == 0)
                 {
-                    baseInterfaces.Add(ParsedInterface.IUnknownFullName);
+                    baseInterfaces.Add(ParsedType.IUnknownFullName);
                 }
                 else if (baseInterfaces.Count > 1)
                 {
@@ -87,7 +118,7 @@ namespace PyWin32Metadata
                         }
                     }
 
-                    var dec = method.DecodeSignature(new SignatureTypeProvider(), null);
+                    var dec = method.DecodeSignature(SignatureTypeProvider.Instance, null);
                     pm.ReturnType = dec.ReturnType;
                     if (dec.ParameterTypes.Length != pm.Parameters.Count)
                         throw new InvalidOperationException();

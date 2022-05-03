@@ -8,8 +8,8 @@ namespace PyWin32Metadata
         private readonly string _pythonTypeDesc;
         private readonly string _formatChar;
 
-        public ArgFormatterSimple(ParsedParameter parameter, string unconstType, string pythonTypeDesc, string formatChar)
-            : base(parameter, 0)
+        public ArgFormatterSimple(GeneratorContext context, ParsedParameter parameter, string unconstType, string pythonTypeDesc, string formatChar)
+            : base(context, parameter, 0)
         {
             _unconstType = unconstType;
             _pythonTypeDesc = pythonTypeDesc;
@@ -24,5 +24,7 @@ namespace PyWin32Metadata
         public override string? GetInterfaceArgCleanupGIL() => null;
         public override IEnumerable<string> GetParsePostCode() { yield break; }
         public override string? GetBuildForGatewayPostCode() => null;
+        public override string? GetBuildForInterfacePreCode() => null;
+        public override string? GetBuildForInterfacePostCode() => null;
     }
 }

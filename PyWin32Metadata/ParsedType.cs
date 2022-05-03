@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Reflection.Metadata;
 
 namespace PyWin32Metadata
 {
@@ -21,15 +22,43 @@ namespace PyWin32Metadata
 
         public (string, string) FullName { get; }
         public int Indirections { get; set; }
+        public ArrayShape? ArrayShape { get; set; }
         public string Name => FullName.Item2;
         public string Namespace => FullName.Item1;
         public string FullNameString => Namespace + "." + Name;
         public string WithIndirectionsName => Name + new string('*', Indirections);
-        public string CppWithIndirectionsName => CppName + new string('*', Indirections);
+        public string CppWithIndirectionsName => CppName + new string('*', Indirections) + ArrayText;
         public ParsedType PointerType => new ParsedType(FullName) { Indirections = Indirections + 1 };
         public bool IsUnknown => FullName == IUnknownFullName;
         public bool IsDispatch => FullName == IDispatchFullName;
         public bool IsHRESULT => FullName == HRESULTFullName;
+
+        public ParsedType Clone()
+        {
+            var clone = new ParsedType(FullName);
+            clone.ArrayShape = ArrayShape;
+            clone.Indirections = Indirections;
+            return clone;
+        }
+
+        private string? ArrayText
+        {
+            get
+            {
+                if (!ArrayShape.HasValue)
+                    return null;
+
+                string? s = null;
+                for (var i = 0; i < ArrayShape.Value.Rank; i++)
+                {
+                    if (ArrayShape.Value.LowerBounds[i] != 0)
+                        throw new InvalidOperationException();
+
+                    s += "[" + ArrayShape.Value.Sizes + "]";
+                }
+                return s;
+            }
+        }
 
         public string CppName
         {
@@ -74,10 +103,10 @@ namespace PyWin32Metadata
                 if (FullNameString == typeof(double).FullName)
                     return "double";
 
-                if (FullNameString == typeof(IntPtr).FullName)
+                if (FullNameString == typeof(UIntPtr).FullName)
                     return "UINT_PTR";
 
-                if (FullNameString == typeof(UIntPtr).FullName)
+                if (FullNameString == typeof(IntPtr).FullName)
                     return "INT_PTR";
 
                 return Name;

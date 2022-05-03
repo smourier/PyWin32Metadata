@@ -4,8 +4,8 @@ namespace PyWin32Metadata
 {
     public class ArgFormatterInterface : ArgFormatterPythonCOM
     {
-        public ArgFormatterInterface(ParsedParameter parameter)
-            : base(parameter, 0, 1)
+        public ArgFormatterInterface(GeneratorContext context, ParsedParameter parameter)
+            : base(context, parameter, 0, 1)
         {
         }
 
