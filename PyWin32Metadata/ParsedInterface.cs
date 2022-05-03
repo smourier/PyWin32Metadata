@@ -3,6 +3,7 @@ using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace PyWin32Metadata
 {
@@ -52,16 +53,38 @@ namespace PyWin32Metadata
             }
         }
 
-        public string GenerateCppDeclaration()
+        public string PointerName
         {
+            get
+            {
+                var sb = new StringBuilder("p");
+                foreach (var c in Name)
+                {
+                    if (c >= 'a' && c <= 'z')
+                        continue;
+
+                    sb.Append(c);
+                }
+                return sb.ToString();
+            }
+        }
+
+        public string GenerateCppDeclaration(GeneratorContext context)
+        {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
             using var writer = new StringWriter();
             using var iw = new IndentedTextWriter(writer);
-            GenerateCppDeclaration(iw);
+            GenerateCppDeclaration(context, iw);
             return writer.ToString();
         }
 
-        public void GenerateCppDeclaration(IndentedTextWriter writer)
+        public void GenerateCppDeclaration(GeneratorContext context, IndentedTextWriter writer)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
             if (writer == null)
                 throw new ArgumentNullException(nameof(writer));
 
@@ -133,16 +156,22 @@ namespace PyWin32Metadata
             writer.WriteLine("};");
         }
 
-        public string GenerateCppImplementation()
+        public string GenerateCppImplementation(GeneratorContext context)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
             using var writer = new StringWriter();
             using var iw = new IndentedTextWriter(writer);
-            GenerateCppImplementation(iw);
+            GenerateCppImplementation(context, iw);
             return writer.ToString();
         }
 
-        public void GenerateCppImplementation(IndentedTextWriter writer)
+        public void GenerateCppImplementation(GeneratorContext context, IndentedTextWriter writer)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
             if (writer == null)
                 throw new ArgumentNullException(nameof(writer));
 
@@ -189,12 +218,170 @@ namespace PyWin32Metadata
                 writer.WriteLine($"PyObject *Py{Name}::{method.Name}(PyObject *self, PyObject *args)");
                 writer.WriteLine("{");
                 writer.Indent++;
-                var ptr = "pi";
+                var ptr = PointerName;
                 writer.WriteLine($"{Name} *{ptr} = GetI(self);");
                 writer.WriteLine($"if ( {ptr} == NULL )");
                 writer.Indent++;
                 writer.WriteLine("return NULL;");
                 writer.Indent--;
+
+                string? argsParseTuple = null;
+                string? argsCOM = null;
+                string? formatChars = null;
+                var codePost = new List<string>();
+                var codePythonObjects = new List<string>();
+                var codeCppObjects = new List<string>();
+                var cleanup = new List<string>();
+                var cleanup_gil = new List<string>();
+
+                foreach (var p in method.Parameters)
+                {
+                    var cvt = ArgFormatter.GetArgConverter(context, p);
+                    if (cvt == null)
+                    {
+                        writer.WriteLine($"// *** The input argument {p.Name} of type \"{p.Type.Name}\" was not processed ***");
+                        writer.WriteLine("//     Please check the conversion function is appropriate and exists!");
+                        writer.WriteLine($"{p.Type.Name} {p.Name};");
+                        writer.WriteLine($"PyObject *ob{p.Name};");
+                        writer.WriteLine($"// @pyparm <o Py{p.Type.Name}>|{p.Name}||Description for {p.Name}");
+                        codePost.Add($"if (bPythonIsHappy && !PyObject_As{p.Type.Name}( ob{p.Name}, &{p.Name} )) bPythonIsHappy = FALSE;");
+                        formatChars += "O";
+                        argsParseTuple += $", &ob{p.Name}";
+                        argsCOM += ", " + p.Name;
+                        cleanup.Add($"PyObject_Free{p.Type.Name}({p.Name});");
+                        continue;
+                    }
+
+                    if (!p.IsOut)
+                    {
+                        var val = cvt.GetFormatChar();
+                        if (val != null)
+                        {
+                            writer.WriteLine(cvt.GetAutoduckString());
+                            formatChars += val;
+                            argsParseTuple += ", " + cvt.GetParseTupleArg();
+
+                            var pat = cvt.DeclareParseArgTupleInputConverter();
+                            if (pat != null)
+                            {
+                                codePythonObjects.Add(pat);
+                            }
+
+                            codePost.AddRange(cvt.GetParsePostCode());
+                            var ac = cvt.GetInterfaceArgCleanup();
+                            if (ac != null)
+                            {
+                                cleanup.Add(ac);
+                            }
+
+                            ac = cvt.GetInterfaceArgCleanupGIL();
+                            if (ac != null)
+                            {
+                                cleanup_gil.Add(ac);
+                            }
+                        }
+                    }
+
+                    var comArg = cvt.GetInterfaceCppObjectInfo();
+                    if (comArg.Item2 != null)
+                    {
+                        codeCppObjects.Add(comArg.Item2 + ";");
+                    }
+                    argsCOM += ", " + comArg.Item1;
+                }
+
+                foreach (var po in codePythonObjects)
+                {
+                    writer.WriteLine(po);
+                }
+
+                foreach (var co in codeCppObjects)
+                {
+                    writer.WriteLine(co);
+                }
+
+                writer.WriteLine($"if ( !PyArg_ParseTuple(args, \"{formatChars}:{method.Name}\"{argsParseTuple}) )");
+                writer.Indent++;
+                writer.WriteLine("return NULL;");
+                writer.Indent--;
+
+                if (codePost.Count > 0)
+                {
+                    writer.WriteLine("BOOL bPythonIsHappy = TRUE;");
+                    foreach (var cp in codePost)
+                    {
+                        writer.WriteLine(cp);
+                    }
+                    writer.WriteLine("if (!bPythonIsHappy) return NULL;");
+                }
+
+                writer.WriteLine("HRESULT hr;");
+                writer.WriteLine("PY_INTERFACE_PRECALL;");
+                writer.WriteLine($"hr = {ptr}->{method.Name}({(argsCOM != null ? argsCOM.Substring(1) : null)} );");
+                foreach (var cl in cleanup)
+                {
+                    writer.WriteLine(cl);
+                }
+                writer.WriteLine("PY_INTERFACE_POSTCALL;");
+                if (cleanup_gil.Count > 0)
+                {
+                    foreach (var cp in cleanup_gil)
+                    {
+                        writer.WriteLine(cp);
+                    }
+                }
+
+                writer.WriteLine("if ( FAILED(hr) )");
+                writer.Indent++;
+                writer.WriteLine($"return PyCom_BuildPyException(hr, {ptr}, IID_{Name} );");
+                writer.Indent--;
+
+                string? codePre = null;
+                codePost.Clear();
+                formatChars = null;
+                string? codeVarsPass = null;
+                string? codeDecl = null;
+
+                foreach (var p in method.Parameters)
+                {
+                    if (!p.IsOut)
+                        continue;
+
+                    var cvt = ArgFormatter.GetArgConverter(context, p);
+                    if (cvt == null)
+                    {
+                        writer.WriteLine($"// *** The output argument {p.Name} of type \"{p.Type.Name}\" was not processed ***");
+                        continue;
+                    }
+
+                    var formatChar = cvt.GetFormatChar();
+                    if (formatChar != null)
+                    {
+                        formatChars += formatChar;
+                        codePre += cvt.GetBuildForInterfacePreCode();
+                        codePost.Add(cvt.GetBuildForInterfacePostCode());
+                        codeVarsPass += ", " + cvt.GetBuildValueArg();
+                        codeDecl += cvt.DeclareParseArgTupleInputConverter();
+                    }
+                }
+
+                if (formatChars != null)
+                {
+                    writer.WriteLine(codeDecl);
+                    writer.WriteLine(codePre);
+                    writer.WriteLine($"PyObject *pyretval = Py_BuildValue(\"{formatChars}\"{codeVarsPass});");
+                    foreach (var cp in codePost)
+                    {
+                        writer.WriteLine(cp);
+                    }
+                    writer.WriteLine("return pyretval;");
+                }
+                else
+                {
+                    writer.WriteLine("Py_INCREF(Py_None);");
+                    writer.WriteLine("return Py_None;");
+                }
+
                 writer.Indent--;
                 writer.WriteLine("}");
                 writer.WriteLine();
@@ -228,7 +415,7 @@ namespace PyWin32Metadata
                     throw new InvalidOperationException();
 
                 var parameters = string.Join(", ", method.Parameters.Select(p => p.GenerateCppMethodSignature()));
-                var sig = $"{Name}::{method.Name}({parameters})";
+                var sig = $"PyG{Name}::{method.Name}({parameters})";
                 if (method.ReturnType.IsHRESULT)
                 {
                     writer.WriteLine($"STDMETHODIMP {sig}");
@@ -242,11 +429,11 @@ namespace PyWin32Metadata
                 writer.WriteLine("PY_GATEWAY_METHOD;");
 
                 var outs = 0;
-                string formatChars = null;
-                string codePost = null;
-                string codePre = null;
-                string codeVars = null;
-                string argStr = null;
+                string? formatChars = null;
+                var codePost = new List<string>();
+                string? codePre = null;
+                string? codeVars = null;
+                string? argStr = null;
                 foreach (var p in method.Parameters)
                 {
                     if (p.Type == null)
@@ -259,24 +446,48 @@ namespace PyWin32Metadata
                         {
                             writer.WriteLine($"if ({p.Name}==NULL) return E_POINTER;");
                         }
+                        continue;
                     }
-                    else
+
+                    var cvt = ArgFormatter.GetArgConverter(context, p);
+                    if (cvt == null)
                     {
-                        var cvt = ArgFormatter.GetArgConverter(p);
-                        if (cvt == null)
-                        {
-                            writer.WriteLine($"// *** The input argument {p.Name} of type \"{p.Type.FullNameString}\" was not processed ***");
-                            writer.WriteLine($"//   - Please ensure this conversion function exists, and is appropriate");
-                            writer.WriteLine($"PyObject *ob{p.Name} = PyObject_From{p.Type.Name}({p.Name});");
-                            writer.WriteLine($"if (ob{p.Name}==NULL) return MAKE_PYCOM_GATEWAY_FAILURE_CODE(\"{method.Name}\");");
-                            codePost += $"Py_DECREF(ob{p.Name});";
-                            formatChars += "O";
-                            argStr += $", ob{p.Name}";
-                        }
-                        else
-                        {
-                        }
+                        writer.WriteLine($"// *** The input argument {p.Name} of type \"{p.Type.Name}\" was not processed ***");
+                        writer.WriteLine($"//   - Please ensure this conversion function exists, and is appropriate");
+                        writer.WriteLine($"PyObject *ob{p.Name} = PyObject_From{p.Type.Name}({p.Name});");
+                        writer.WriteLine($"if (ob{p.Name}==NULL) return MAKE_PYCOM_GATEWAY_FAILURE_CODE(\"{method.Name}\");");
+                        codePost.Add($"Py_DECREF(ob{p.Name});");
+                        formatChars += "O";
+                        argStr += $", ob{p.Name}";
+                        continue;
                     }
+
+                    cvt.GatewayMode = true;
+                    var formatChar = cvt.GetFormatChar();
+                    if (formatChar != null)
+                    {
+                        formatChars += formatChar;
+                        codeVars += cvt.DeclareParseArgTupleInputConverter();
+                        argStr += ", " + cvt.GetBuildValueArg();
+                    }
+
+                    codePre += cvt.GetBuildForGatewayPreCode();
+
+                    var cp = cvt.GetBuildForGatewayPostCode();
+                    if (cp != null)
+                    {
+                        codePost.Add(cp);
+                    }
+                }
+
+                if (codeVars != null)
+                {
+                    writer.WriteLine(codeVars);
+                }
+
+                if (codePre != null)
+                {
+                    writer.WriteLine(codePre);
                 }
 
                 string resStr;
@@ -301,6 +512,13 @@ namespace PyWin32Metadata
                 }
 
                 writer.WriteLine($"HRESULT hr=InvokeViaPolicy(\"{method.Name}\", {fullArgStr});");
+                if (codePost.Count > 0)
+                {
+                    foreach (var cp in codePost)
+                    {
+                        writer.WriteLine(cp);
+                    }
+                }
 
                 if (outs > 0)
                 {
@@ -308,12 +526,29 @@ namespace PyWin32Metadata
                     writer.WriteLine("// Process the Python results, and convert back to the real params");
 
                     formatChars = null;
-                    string codePobjects = null;
-                    string argsParseTuple = null;
+                    string? codePobjects = null;
+                    string? argsParseTuple = null;
                     foreach (var p in method.Parameters)
                     {
-                        if (p.IsOut)
+                        if (!p.IsOut)
+                            continue;
+
+                        var cvt = ArgFormatter.GetArgConverter(context, p);
+                        if (cvt == null)
                         {
+                            writer.WriteLine($"// *** The output argument {p.Name} of type \"{p.Type.Name}\" was not processed ***");
+                            continue;
+                        }
+
+                        cvt.GatewayMode = true;
+                        var val = cvt.GetFormatChar();
+                        if (val != null)
+                        {
+                            formatChars += val;
+                            argsParseTuple += ", " + cvt.GetParseTupleArg();
+
+                            codePobjects += cvt.DeclareParseArgTupleInputConverter();
+                            codePost.AddRange(cvt.GetParsePostCode());
                         }
                     }
 
@@ -340,10 +575,13 @@ namespace PyWin32Metadata
                         writer.Indent--;
                     }
 
-                    if (codePost != null)
+                    if (codePost.Count > 0)
                     {
                         writer.WriteLine("BOOL bPythonIsHappy = TRUE;");
-                        writer.WriteLine(codePost);
+                        foreach (var cp in codePost)
+                        {
+                            writer.WriteLine(cp);
+                        }
                         writer.WriteLine($"if (!bPythonIsHappy) hr = MAKE_PYCOM_GATEWAY_FAILURE_CODE(\"{method.Name}\");");
                     }
 

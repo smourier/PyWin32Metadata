@@ -28,6 +28,9 @@ namespace PyWin32Metadata
             { "TEXT_DOC_ATTR", ("int", "int", "i") },
             { "QUERYOPTION", ("int", "int", "i") },
             { "PARSEACTION", ("int", "int", "i") },
+            // .NET
+            { "Int32", ("INT", "int", "i") },
+            { "UInt32", ("UINT", "int", "i") },
         };
 
         internal static Dictionary<string, (Type, int, int)> _allConverters = new()
@@ -36,37 +39,50 @@ namespace PyWin32Metadata
             { "WCHAR", (typeof(ArgFormatterOLECHAR), 0, 1) },
             { "OLECHAR", (typeof(ArgFormatterOLECHAR), 0, 1) },
             { "LPCOLESTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
+            { "PCOLESTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
             { "LPOLESTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
+            { "POLESTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
             { "LPCWSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
+            { "PCWSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
             { "LPWSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
+            { "PWSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
             { "LPCSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
+            { "PCSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
         };
 
-        public static string IndirectPrefix(int indirectionFrom, int indirectionTo)
+        protected static string IndirectPrefix(int indirectionFrom, int indirectionTo)
         {
-            var dif = indirectionFrom - indirectionTo;
-            if (dif == 0)
+            var diff = indirectionFrom - indirectionTo;
+            if (diff == 0)
                 return string.Empty;
 
-            if (dif == -1)
+            if (diff == -1)
                 return "&";
 
-            if (dif == 1)
+            if (diff == 1)
                 return "*";
 
-            throw new NotSupportedException();
+            return "/* IndirectPrefix diff " + diff + " is not supported.*/";
         }
 
-        public static ArgFormatter? GetArgConverter(ParsedParameter parameter)
+        private readonly static HashSet<string> _notFound = new();
+
+        public static ArgFormatter? GetArgConverter(GeneratorContext context, ParsedParameter parameter)
         {
+            if (context == null)
+                throw new ArgumentNullException(nameof(context));
+
             if (parameter == null)
                 throw new ArgumentNullException(nameof(parameter));
 
             if (parameter.Type == null)
                 throw new InvalidOperationException();
 
+            if (context.Interfaces.ContainsKey(parameter.Type.FullName))
+                return new ArgFormatterInterface(parameter);
+
             if (_convertSimpleTypes.TryGetValue(parameter.Type.Name, out var converter))
-                return new ArgFormatterSimple(parameter, converter.Item2, converter.Item3);
+                return new ArgFormatterSimple(parameter, converter.Item1, converter.Item2, converter.Item3);
 
             if (_allConverters.TryGetValue(parameter.Type.Name, out var converter2))
             {
@@ -79,10 +95,15 @@ namespace PyWin32Metadata
                 return Activator.CreateInstance(converter2.Item1, args.ToArray()) as ArgFormatter;
             }
 
+            if (!_notFound.Contains(parameter.Type.FullNameString))
+            {
+                _notFound.Add(parameter.Type.FullNameString);
+                Console.WriteLine("Not Found: " + parameter.Type.FullNameString);
+            }
             return null;
         }
 
-        protected ArgFormatter(ParsedParameter parameter, int builtinIndirection, int declaredIndirection = 0)
+        protected ArgFormatter(ParsedParameter parameter, int? builtinIndirection, int declaredIndirection = 0)
         {
             if (parameter == null)
                 throw new ArgumentNullException(nameof(parameter));
@@ -93,7 +114,7 @@ namespace PyWin32Metadata
         }
 
         public ParsedParameter Parameter { get; }
-        public int BuiltinIndirection { get; }
+        public int? BuiltinIndirection { get; }
         public int DeclaredIndirection { get; }
         public bool GatewayMode { get; set; }
 
@@ -105,8 +126,9 @@ namespace PyWin32Metadata
             return Parameter.Type.Indirections;
         }
 
-        protected virtual string GetPythonTypeDesc() => null;
-        public virtual string GetFormatChar() => null;
+        protected virtual string GetUnconstType() => Parameter.Type.Name;
+        protected virtual string? GetPythonTypeDesc() => null;
+        public virtual string? GetFormatChar() => null;
 
         public virtual string GetIndirectedArgName(int? indirectFrom, int indirectionTo)
         {
@@ -128,15 +150,19 @@ namespace PyWin32Metadata
             return GetIndirectedArgName(BuiltinIndirection, 1);
         }
 
-        public virtual (string, string) GetInterfaceCppObjectInfo() => new(GetIndirectedArgName(BuiltinIndirection, Parameter.Type.Indirections + BuiltinIndirection), $"{GetUnconstType()} {Parameter.Name}");
+        public virtual (string, string) GetInterfaceCppObjectInfo() => new(GetIndirectedArgName(BuiltinIndirection, Parameter.Type.Indirections + BuiltinIndirection.GetValueOrDefault()), $"{GetUnconstType()} {Parameter.Name}");
 
-        public virtual string GetInterfaceArgCleanup() => $"/* GetInterfaceArgCleanup output goes here: {Parameter.Name} */";
-        public virtual string GetInterfaceArgCleanupGIL() => $"/* GetInterfaceArgCleanup (GIL held) output goes here: {Parameter.Name} */";
-        public virtual string GetUnconstType() => Parameter.Type.FullNameString;
-        public virtual string DeclareParseArgTupleInputConverter() => $"/* Declare ParseArgTupleInputConverter goes here: {Parameter.Name} */";
-        public virtual string GetParsePostCode() => $"/* GetParsePostCode code goes here: {Parameter.Name} */";
-        public virtual string GetBuildForInterfacePreCode() => $"/* GetBuildForInterfacePreCode goes here: {Parameter.Name} */";
-        public virtual string GetBuildForGatewayPreCode()
+        public virtual string? GetInterfaceArgCleanup() => $"/* GetInterfaceArgCleanup output goes here: {Parameter.Name} */";
+        public virtual string? GetInterfaceArgCleanupGIL() => $"/* GetInterfaceArgCleanup (GIL held) output goes here: {Parameter.Name} */";
+        public virtual string? DeclareParseArgTupleInputConverter() => $"/* Declare ParseArgTupleInputConverter goes here: {Parameter.Name} */";
+        
+        public virtual IEnumerable<string> GetParsePostCode()
+        {
+            yield return $"/* GetParsePostCode code goes here: {Parameter.Name} */";
+        }
+
+        public virtual string? GetBuildForInterfacePreCode() => $"/* GetBuildForInterfacePreCode goes here: {Parameter.Name} */";
+        public virtual string? GetBuildForGatewayPreCode()
         {
             var s = GetBuildForInterfacePreCode();
             if (s.Substring(0, 4) == "/* G")
@@ -145,8 +171,8 @@ namespace PyWin32Metadata
             return s;
         }
 
-        public virtual string GetBuildForInterfacePostCode() => $"/* GetBuildForInterfacePostCode goes here: {Parameter.Name} */";
-        public virtual string GetBuildForGatewayPostCode()
+        public virtual string? GetBuildForInterfacePostCode() => $"/* GetBuildForInterfacePostCode goes here: {Parameter.Name} */";
+        public virtual string? GetBuildForGatewayPostCode()
         {
             var s = GetBuildForInterfacePostCode();
             if (s.Substring(0, 4) == "/* G")

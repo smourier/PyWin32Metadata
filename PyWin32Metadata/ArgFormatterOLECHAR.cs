@@ -1,4 +1,6 @@
-﻿namespace PyWin32Metadata
+﻿using System.Collections.Generic;
+
+namespace PyWin32Metadata
 {
     public class ArgFormatterOLECHAR : ArgFormatterPythonCOM
     {
@@ -8,5 +10,9 @@
         }
 
         protected override string GetPythonTypeDesc() => "<o unicode>";
+
+        public override IEnumerable<string> GetParsePostCode() { yield break; }
+        public override string? GetInterfaceArgCleanup() => null;
+        public override string? GetInterfaceArgCleanupGIL() => null;
     }
 }

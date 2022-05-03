@@ -18,7 +18,7 @@ namespace PyWin32Metadata
             using var pe = new PEReader(stream);
             var reader = pe.GetMetadataReader();
 
-            var interfaces = new Dictionary<(string, string), ParsedInterface>();
+            var ctx = new GeneratorContext();
 
             var count = 0;
             // we only get interfaces
@@ -98,19 +98,19 @@ namespace PyWin32Metadata
                     }
                 }
 
-                interfaces.Add(pi.FullName, pi);
+                ctx.Interfaces.Add(pi.FullName, pi);
                 count++;
             }
 
             // resolve base interfaces & interfaces as parameter
-            foreach (var pi in interfaces)
+            foreach (var pi in ctx.Interfaces)
             {
-                pi.Value.BaseInterface = interfaces[pi.Value.BaseFullName];
+                pi.Value.BaseInterface = ctx.Interfaces[pi.Value.BaseFullName];
                 foreach (var m in pi.Value.Methods)
                 {
                     foreach (var p in m.Parameters)
                     {
-                        if (p.Type != null && interfaces.TryGetValue(p.Type.FullName, out var piface))
+                        if (p.Type != null && ctx.Interfaces.TryGetValue(p.Type.FullName, out var piface))
                         {
                             // a .NET interface is not marked as of pointer type, but it is, for C++
                             var refType = new ParsedType(piface.FullName) { Indirections = p.Type.Indirections + 1 };
@@ -120,11 +120,21 @@ namespace PyWin32Metadata
                 }
             }
 
-            //foreach (var pi in interfaces)
-            //{
-            //    Console.WriteLine(pi.Value.GenerateCppDeclaration());
-            //}
-            //return;
+            var path = Path.GetFullPath("Generated");
+            if (!Directory.Exists(path))
+            {
+                Directory.CreateDirectory(path);
+            }
+
+            foreach (var pi in ctx.Interfaces)
+            {
+                //Console.WriteLine(pi.Value.Name);
+                File.WriteAllText(Path.Combine(path, "Py" + pi.Value.Name + ".h"), pi.Value.GenerateCppDeclaration(ctx));
+                File.WriteAllText(Path.Combine(path, "Py" + pi.Value.Name + ".cpp"), pi.Value.GenerateCppImplementation(ctx));
+                //Console.WriteLine(pi.Value.GenerateCppDeclaration());
+                //Console.WriteLine(pi.Value.GenerateCppImplementation());
+            }
+            return;
 
             DumpShell("IShellItem");
             DumpShell("IShellItem2");
@@ -133,9 +143,9 @@ namespace PyWin32Metadata
             void DumpShell(string n) => Dump("Windows.Win32.UI.Shell", n);
             void Dump(string ns, string n)
             {
-                var ifa = interfaces[(ns, n)];
-                Console.WriteLine(ifa.GenerateCppDeclaration());
-                Console.WriteLine(ifa.GenerateCppImplementation());
+                var ifa = ctx.Interfaces[(ns, n)];
+                Console.WriteLine(ifa.GenerateCppDeclaration(ctx));
+                Console.WriteLine(ifa.GenerateCppImplementation(ctx));
             }
         }
     }
