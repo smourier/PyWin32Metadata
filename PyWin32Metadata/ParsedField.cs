@@ -18,10 +18,6 @@ namespace PyWin32Metadata
         public string Name { get; }
         public ParsedType Type { get; }
 
-        public override string ToString()
-        {
-            var typeName = Type?.CppWithIndirectionsName ?? "???";
-            return typeName + " " + Name;
-        }
+        public override string ToString() => (Type != null ? "???" : null) + " " + Name;
     }
 }

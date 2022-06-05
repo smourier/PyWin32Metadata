@@ -128,8 +128,14 @@ namespace PyWin32Metadata
             if (context.Functions.Contains(parameter.Type.FullName))
                 return new ArgFormatterLONG_PTR(context, parameter, 1, 0);
 
-            if (parameter.Type.CppWithIndirectionsName == "void*")
-                return new ArgFormatterLONG_PTR(context, parameter, 1, 0);
+            if (parameter.Type.FullName == ("System", "Void"))
+            {
+                if (parameter.Type.Indirections == 1)
+                    return new ArgFormatterLONG_PTR(context, parameter, 1, 0);
+
+                if (parameter.Type.Indirections == 1)
+                    return new ArgFormatterInterface(context, parameter);
+            }
 
             if (context.Structures.TryGetValue(parameter.Type.FullName, out var ps))
                 return new ArgFormatterStruct(context, parameter, ps, null);
@@ -178,7 +184,8 @@ namespace PyWin32Metadata
 
         protected virtual string GetUnconstType() => Parameter.Type.Name;
         protected virtual string? GetPythonTypeDesc() => null;
-        public virtual string? GetFormatChar() => null;
+        public virtual string? GetInFormatChar() => null;
+        public virtual string? GetOutFormatChar() => GetInFormatChar();
 
         public virtual string GetIndirectedArgName(int? indirectFrom, int indirectionTo)
         {
@@ -190,7 +197,8 @@ namespace PyWin32Metadata
             return IndirectPrefix(indirectFrom.GetValueOrDefault(), indirectionTo) + Parameter.Name;
         }
 
-        public virtual string GetBuildValueArg() => Parameter.Name;
+        public virtual string GetInBuildValueArg() => Parameter.Name;
+        public virtual string GetOutBuildValueArg() => GetInBuildValueArg();
 
         public virtual string GetParseTupleArg()
         {
@@ -217,9 +225,25 @@ namespace PyWin32Metadata
             yield return $"/* Declare ParseArgTupleInputConverter goes here: {Parameter.Name} */";
         }
 
-        public virtual IEnumerable<string> GetParsePostCode()
+        public virtual IEnumerable<string> GetInParsePostCode()
         {
-            yield return $"/* GetParsePostCode code goes here: {Parameter.Name} */";
+            yield return $"/* GetInParsePostCode code goes here: {Parameter.Name} */";
+        }
+
+        public virtual IEnumerable<string> GetOutParsePostCode()
+        {
+            var warning = GetBuildForInterfacePreCode().ToArray();
+            if (warning.Length > 0 && warning[0].StartsWith("/* GetInParsePostCode code goes here:"))
+            {
+                yield return $"/* GetOutParsePostCode code goes here: {Parameter.Name} */";
+            }
+            else
+            {
+                foreach (var code in warning)
+                {
+                    yield return code;
+                }
+            }
         }
 
         public virtual IEnumerable<string> GetBuildForInterfacePreCode()

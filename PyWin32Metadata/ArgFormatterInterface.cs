@@ -10,7 +10,7 @@ namespace PyWin32Metadata
         }
 
         public override (string, string) GetInterfaceCppObjectInfo() => new(GetIndirectedArgName(1, Parameter.Type.Indirections), $"{GetUnconstType()} * {Parameter.Name}");
-        public override IEnumerable<string> GetParsePostCode()
+        public override IEnumerable<string> GetInParsePostCode()
         {
             var args = GetIndirectedArgName(GatewayMode ? null : 1, 2);
             yield return $"if (bPythonIsHappy && !PyCom_InterfaceFromPyInstanceOrObject(ob{Parameter.Name}, IID_{Parameter.Type.Name}, (void **){args}, TRUE /* bNoneOK */)) bPythonIsHappy = FALSE;";

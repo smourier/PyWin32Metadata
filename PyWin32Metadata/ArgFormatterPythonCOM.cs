@@ -9,11 +9,11 @@ namespace PyWin32Metadata
         {
         }
 
-        public override string GetFormatChar() => "O";
+        public override string GetInFormatChar() => "O";
         public override IEnumerable<string> DeclareParseArgTupleInputConverter() { yield return $"PyObject *ob{Parameter.Name};"; }
         public override string GetParseTupleArg() => $"&ob{Parameter.Name}";
         protected override string GetPythonTypeDesc() => $"<o Py{Parameter.Type.Name}>";
-        public override string GetBuildValueArg() => $"ob{Parameter.Name}";
+        public override string GetInBuildValueArg() => $"ob{Parameter.Name}";
         public override IEnumerable<string> GetBuildForInterfacePostCode() { yield return $"Py_XDECREF(ob{Parameter.Name});"; }
     }
 }

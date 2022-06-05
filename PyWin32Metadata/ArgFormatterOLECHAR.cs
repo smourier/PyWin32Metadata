@@ -11,7 +11,7 @@ namespace PyWin32Metadata
 
         protected override string GetPythonTypeDesc() => "<o unicode>";
 
-        public override IEnumerable<string> GetParsePostCode() { yield break; }
+        public override IEnumerable<string> GetInParsePostCode() { yield break; }
         public override IEnumerable<string> GetInterfaceArgCleanup() { yield break; }
         public override IEnumerable<string> GetInterfaceArgCleanupGIL() { yield break; }
     }

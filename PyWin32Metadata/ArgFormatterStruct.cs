@@ -13,11 +13,10 @@ namespace PyWin32Metadata
         }
 
         public ParsedStructure Structure { get; }
-        public override string GetFormatChar() => "O";
+        public override string GetInFormatChar() => "O";
         public override IEnumerable<string> DeclareParseArgTupleInputConverter() { yield return $"PyObject *ob{Parameter.Name};"; }
         public override string GetParseTupleArg() => $"&ob{Parameter.Name}";
-        //public override IEnumerable<string> GetParsePostCode() { yield return $"if (bPythonIsHappy && !PyWinObject_As{Parameter.Type.Name}(ob{Parameter.Name}, &{GetIndirectedArgName(null, 0)}, FALSE) bPythonIsHappy = FALSE;"; }
-        public override IEnumerable<string> GetParsePostCode()
+        public override IEnumerable<string> GetInParsePostCode()
         {
             if (Structure.Fields.Count == 1)
                 yield return $"if (bPythonIsHappy && !PyWinObject_As{Parameter.Type.Name}(ob{Parameter.Name}, &{GetIndirectedArgName(null, 0)}, FALSE) bPythonIsHappy = FALSE;";
@@ -40,7 +39,7 @@ namespace PyWin32Metadata
 
                 string? formatChar;
                 // is it sub structure?
-                if (context.Structures.TryGetValue(field.Type.FullName, out var ps))
+                if (field.Type.Indirections == 0 && context.Structures.TryGetValue(field.Type.FullName, out var ps))
                 {
                     var subFormatter = new ArgFormatterStruct(context, structFormatter.Parameter, ps, null);
                     var subFormat = new List<string>();
@@ -53,7 +52,7 @@ namespace PyWin32Metadata
                     var formatter = GetArgConverter(context, pp);
                     if (formatter != null)
                     {
-                        formatChar = formatter.GetFormatChar();
+                        formatChar = formatter.GetInFormatChar();
                         if (formatChar == null)
                             throw new InvalidOperationException();
                     }

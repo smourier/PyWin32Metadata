@@ -11,7 +11,7 @@ namespace PyWin32Metadata
 
         protected override string GetPythonTypeDesc() => "<o PyHANDLE>";
 
-        public override IEnumerable<string> GetParsePostCode() { yield return $"if (!PyWinObject_AsHANDLE(ob{Parameter.Name}, &{GetIndirectedArgName(null, 1)}, FALSE) bPythonIsHappy = FALSE;"; }
+        public override IEnumerable<string> GetInParsePostCode() { yield return $"if (!PyWinObject_AsHANDLE(ob{Parameter.Name}, &{GetIndirectedArgName(null, 1)}, FALSE) bPythonIsHappy = FALSE;"; }
         public override IEnumerable<string> GetBuildForInterfacePreCode() { yield return $"ob{Parameter.Name} = PyWinObject_FromHANDLE({GetIndirectedArgName(null, 0)});"; }
         public override IEnumerable<string> GetInterfaceArgCleanup() { yield break; }
         public override IEnumerable<string> GetInterfaceArgCleanupGIL() { yield break; }

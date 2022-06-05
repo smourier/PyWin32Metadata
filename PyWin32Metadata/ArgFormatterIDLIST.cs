@@ -11,7 +11,7 @@ namespace PyWin32Metadata
 
         protected override string GetPythonTypeDesc() => "<o PyIDL>";
 
-        public override IEnumerable<string> GetParsePostCode()
+        public override IEnumerable<string> GetInParsePostCode()
         {
             yield return $"if (bPythonIsHappy && !PyObject_AsPIDL(ob{Parameter.Name}, &{GetIndirectedArgName(null, 1)})) bPythonIsHappy = FALSE;";
         }

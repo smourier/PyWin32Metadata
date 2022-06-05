@@ -31,8 +31,11 @@ namespace PyWin32Metadata
 
         public string GenerateCppMethodSignature()
         {
+            if (IsConst && Type?.GetCppWithIndirectionsName(this) == "GUID*")
+                return "const IID &";
+
             var cas = IsConst ? "const" : string.Empty;
-            var typeName = Type?.CppWithIndirectionsName ?? "???";
+            var typeName = Type?.GetCppWithIndirectionsName(this) ?? "???";
             var list = new List<string>
             {
                 cas,
@@ -45,7 +48,7 @@ namespace PyWin32Metadata
         public override string ToString()
         {
             var cas = string.Join(string.Empty, CustomAttributes.Select(a => "[" + a.ShortName + "]"));
-            var typeName = Type?.CppWithIndirectionsName ?? "???";
+            var typeName = Type?.GetCppWithIndirectionsName(this) ?? "???";
             var list = new List<string>
             {
                 cas,

@@ -254,11 +254,11 @@ namespace PyWin32Metadata
 
                     if (!p.IsOut)
                     {
-                        var val = cvt.GetFormatChar();
-                        if (val != null)
+                        var formatChar = cvt.GetInFormatChar();
+                        if (formatChar != null)
                         {
                             writer.WriteLine(cvt.GetAutoduckString());
-                            formatChars += val;
+                            formatChars += formatChar;
                             argsParseTuple += ", " + cvt.GetParseTupleArg();
 
                             foreach (var pat in cvt.DeclareParseArgTupleInputConverter())
@@ -266,7 +266,7 @@ namespace PyWin32Metadata
                                 codePythonObjects.Add(pat);
                             }
 
-                            codePost.AddRange(cvt.GetParsePostCode());
+                            codePost.AddRange(cvt.GetInParsePostCode());
                             foreach (var acl in cvt.GetInterfaceArgCleanup())
                             {
                                 cleanup.Add(acl);
@@ -343,11 +343,11 @@ namespace PyWin32Metadata
                 writer.WriteLine($"return PyCom_BuildPyException(hr, {ptr}, IID_{Name});");
                 writer.Indent--;
 
-                string? codePre = null;
+                var codePre = new List<string>();
                 codePost.Clear();
                 formatChars = null;
-                var codeVarsPass = new List<string>();
-                string? codeDecl = null;
+                var buildValueArgs = new List<string>();
+                var codeDecl = new List<string>();
 
                 foreach (var p in method.Parameters)
                 {
@@ -361,39 +361,46 @@ namespace PyWin32Metadata
                         continue;
                     }
 
-                    var formatChar = cvt.GetFormatChar();
+                    var formatChar = cvt.GetOutFormatChar();
                     if (formatChar != null)
                     {
                         formatChars += formatChar;
-                        codePre += cvt.GetBuildForInterfacePreCode();
+                        foreach (var cp in cvt.GetBuildForInterfacePreCode())
+                        {
+                            codePre.Add(cp);
+                        }
+
                         foreach (var cp in cvt.GetBuildForInterfacePostCode())
                         {
                             codePost.Add(cp);
                         }
 
-                        var a = cvt.GetBuildValueArg();
+                        var a = cvt.GetInBuildValueArg();
                         if (a != null)
                         {
-                            codeVarsPass.Add(a);
+                            buildValueArgs.Add(a);
                         }
 
-                        codeDecl += cvt.DeclareParseArgTupleInputConverter();
+                        foreach (var cp in cvt.DeclareParseArgTupleInputConverter())
+                        {
+                            codeDecl.Add(cp);
+                        }
                     }
                 }
 
                 if (formatChars != null)
                 {
-                    if (codeDecl != null)
+                    foreach (var cp in codeDecl)
                     {
-                        writer.WriteLine(codeDecl);
+                        writer.WriteLine(cp);
                     }
 
-                    if (codePre != null)
+                    foreach (var cp in codePre)
                     {
-                        writer.WriteLine(codePre);
+                        writer.WriteLine(cp);
                     }
 
-                    writer.WriteLine($"PyObject *pyretval = Py_BuildValue(\"{formatChars}\", {string.Join(", ", codeVarsPass)});");
+                    writer.WriteLine($"PyObject *pyretval = Py_BuildValue(\"{formatChars}\", {string.Join(", ", buildValueArgs)});");
                     foreach (var cp in codePost)
                     {
                         writer.WriteLine(cp);
@@ -440,10 +447,6 @@ namespace PyWin32Metadata
             {
                 if (method.ReturnType == null)
                     throw new InvalidOperationException();
-
-                if (method.Name == "TranslateAccelerator")
-                {
-                }
 
                 var parameters = string.Join(", ", method.Parameters.Select(p => p.GenerateCppMethodSignature()));
                 var sig = $"PyG{Name}::{method.Name}({parameters})";
@@ -494,7 +497,7 @@ namespace PyWin32Metadata
                     }
 
                     cvt.GatewayMode = true;
-                    var formatChar = cvt.GetFormatChar();
+                    var formatChar = cvt.GetInFormatChar();
                     if (formatChar != null)
                     {
                         formatChars += formatChar;
@@ -502,7 +505,7 @@ namespace PyWin32Metadata
                         {
                             codeVars.Add(cp);
                         }
-                        argStr += ", " + cvt.GetBuildValueArg();
+                        argStr += ", " + cvt.GetOutBuildValueArg();
                     }
 
                     foreach (var cp in cvt.GetBuildForGatewayPreCode())
@@ -568,7 +571,7 @@ namespace PyWin32Metadata
                     writer.WriteLine("// Process the Python results, and convert back to the real params");
 
                     formatChars = null;
-                    string? codePobjects = null;
+                    var codePobjects = new List<string>();
                     string? argsParseTuple = null;
                     foreach (var p in method.Parameters)
                     {
@@ -583,14 +586,14 @@ namespace PyWin32Metadata
                         }
 
                         cvt.GatewayMode = true;
-                        var val = cvt.GetFormatChar();
-                        if (val != null)
+                        var formatChar = cvt.GetOutFormatChar();
+                        if (formatChar != null)
                         {
-                            formatChars += val;
+                            formatChars += formatChar;
                             argsParseTuple += ", " + cvt.GetParseTupleArg();
 
-                            codePobjects += cvt.DeclareParseArgTupleInputConverter();
-                            codePost.AddRange(cvt.GetParsePostCode());
+                            codePobjects.AddRange(cvt.DeclareParseArgTupleInputConverter());
+                            codePost.AddRange(cvt.GetOutParsePostCode());
                         }
                     }
 
@@ -606,9 +609,9 @@ namespace PyWin32Metadata
                             parseFn = "PyArg_ParseTuple";
                         }
 
-                        if (codePobjects != null)
+                        foreach (var cp in codePobjects)
                         {
-                            writer.WriteLine(codePobjects);
+                            writer.WriteLine(cp);
                         }
 
                         writer.WriteLine($"if (!{parseFn}(result, \"{formatChars}\" {argsParseTuple}))");

@@ -27,19 +27,10 @@ namespace PyWin32Metadata
         public string Namespace => FullName.Item1;
         public string FullNameString => Namespace + "." + Name;
         public string WithIndirectionsName => Name + new string('*', Indirections);
-        public string CppWithIndirectionsName => CppName + new string('*', Indirections) + ArrayText;
         public ParsedType PointerType => new ParsedType(FullName) { Indirections = Indirections + 1 };
         public bool IsUnknown => FullName == IUnknownFullName;
         public bool IsDispatch => FullName == IDispatchFullName;
         public bool IsHRESULT => FullName == HRESULTFullName;
-
-        public ParsedType Clone()
-        {
-            var clone = new ParsedType(FullName);
-            clone.ArrayShape = ArrayShape;
-            clone.Indirections = Indirections;
-            return clone;
-        }
 
         private string? ArrayText
         {
@@ -112,6 +103,25 @@ namespace PyWin32Metadata
                 return Name;
             }
         }
+
+        public string GetCppWithIndirectionsName(ParsedParameter parameter)
+        {
+            if (CppName == "ITEMIDLIST" && Indirections > 0)
+            {
+                if (parameter?.IsConst == true)
+                    return "LPC" + CppName + new string('*', Indirections - 1) + ArrayText;
+
+                return "LP" + CppName + new string('*', Indirections - 1) + ArrayText;
+            }
+
+            return CppName + new string('*', Indirections) + ArrayText;
+        }
+
+        public ParsedType Clone() => new(FullName)
+        {
+            ArrayShape = ArrayShape,
+            Indirections = Indirections
+        };
 
         public override int GetHashCode() => FullName.GetHashCode();
         public override bool Equals(object? obj) => Equals(obj as ParsedType);
