@@ -261,23 +261,20 @@ namespace PyWin32Metadata
                             formatChars += val;
                             argsParseTuple += ", " + cvt.GetParseTupleArg();
 
-                            var pat = cvt.DeclareParseArgTupleInputConverter();
-                            if (pat != null)
+                            foreach (var pat in cvt.DeclareParseArgTupleInputConverter())
                             {
                                 codePythonObjects.Add(pat);
                             }
 
                             codePost.AddRange(cvt.GetParsePostCode());
-                            var ac = cvt.GetInterfaceArgCleanup();
-                            if (ac != null)
+                            foreach (var acl in cvt.GetInterfaceArgCleanup())
                             {
-                                cleanup.Add(ac);
+                                cleanup.Add(acl);
                             }
 
-                            ac = cvt.GetInterfaceArgCleanupGIL();
-                            if (ac != null)
+                            foreach (var acl in cvt.GetInterfaceArgCleanupGIL())
                             {
-                                cleanup_gil.Add(ac);
+                                cleanup_gil.Add(acl);
                             }
                         }
                     }
@@ -324,6 +321,7 @@ namespace PyWin32Metadata
                     }
                 }
 
+                // REVIEW: this supposes the method always returns HRESULT. needs to check that
                 writer.WriteLine("HRESULT hr;");
                 writer.WriteLine("PY_INTERFACE_PRECALL;");
                 writer.WriteLine($"hr = {ptr}->{method.Name}({(argsCOM != null ? argsCOM.Substring(1) : null)} );");
@@ -368,8 +366,7 @@ namespace PyWin32Metadata
                     {
                         formatChars += formatChar;
                         codePre += cvt.GetBuildForInterfacePreCode();
-                        var cp = cvt.GetBuildForInterfacePostCode();
-                        if (cp != null)
+                        foreach (var cp in cvt.GetBuildForInterfacePostCode())
                         {
                             codePost.Add(cp);
                         }
@@ -405,8 +402,11 @@ namespace PyWin32Metadata
                 }
                 else
                 {
-                    writer.WriteLine("Py_INCREF(Py_None);");
-                    writer.WriteLine("return Py_None;");
+                    //writer.WriteLine("Py_INCREF(Py_None);");
+                    //writer.WriteLine("return Py_None;");
+
+                    writer.WriteLine($"// @rdesc The result is the HRESULT from the underlying {method.Name} call");
+                    writer.WriteLine("return PyLong_FromLong(hr);");
                 }
 
                 writer.Indent--;
@@ -462,8 +462,8 @@ namespace PyWin32Metadata
                 var outs = 0;
                 string? formatChars = null;
                 var codePost = new List<string>();
-                string? codePre = null;
-                string? codeVars = null;
+                var codePre = new List<string>();
+                var codeVars = new List<string>();
                 string? argStr = null;
                 foreach (var p in method.Parameters)
                 {
@@ -498,27 +498,38 @@ namespace PyWin32Metadata
                     if (formatChar != null)
                     {
                         formatChars += formatChar;
-                        codeVars += cvt.DeclareParseArgTupleInputConverter();
+                        foreach (var cp in cvt.DeclareParseArgTupleInputConverter())
+                        {
+                            codeVars.Add(cp);
+                        }
                         argStr += ", " + cvt.GetBuildValueArg();
                     }
 
-                    codePre += cvt.GetBuildForGatewayPreCode();
+                    foreach (var cp in cvt.GetBuildForGatewayPreCode())
+                    {
+                        codePre.Add(cp);
+                    }
 
-                    var cp = cvt.GetBuildForGatewayPostCode();
-                    if (cp != null)
+                    foreach (var cp in cvt.GetBuildForGatewayPostCode())
                     {
                         codePost.Add(cp);
                     }
                 }
 
-                if (codeVars != null)
+                if (codeVars.Count > 0)
                 {
-                    writer.WriteLine(codeVars);
+                    foreach (var cp in codeVars)
+                    {
+                        writer.WriteLine(cp);
+                    }
                 }
 
-                if (codePre != null)
+                if (codePre.Count > 0)
                 {
-                    writer.WriteLine(codePre);
+                    foreach (var cp in codePre)
+                    {
+                        writer.WriteLine(cp);
+                    }
                 }
 
                 string resStr;

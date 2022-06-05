@@ -16,13 +16,16 @@ namespace PyWin32Metadata
             yield return $"if (bPythonIsHappy && !PyCom_InterfaceFromPyInstanceOrObject(ob{Parameter.Name}, IID_{Parameter.Type.Name}, (void **){args}, TRUE /* bNoneOK */)) bPythonIsHappy = FALSE;";
         }
 
-        public override string GetBuildForInterfacePreCode() => $"ob{Parameter.Name} = PyCom_PyObjectFromIUnknown({Parameter.Name}, IID_{Parameter.Type.Name}, FALSE);";
-        public override string GetBuildForGatewayPreCode()
+        public override IEnumerable<string> GetBuildForInterfacePreCode() { yield return $"ob{Parameter.Name} = PyCom_PyObjectFromIUnknown({Parameter.Name}, IID_{Parameter.Type.Name}, FALSE);"; }
+        public override IEnumerable<string> GetBuildForGatewayPreCode()
         {
             var prefix = IndirectPrefix(GetDeclaredIndirections(), 1);
-            return $"ob{Parameter.Name} = PyCom_PyObjectFromIUnknown({prefix}{Parameter.Name}, IID_{Parameter.Type.Name}, TRUE);";
+            yield return $"ob{Parameter.Name} = PyCom_PyObjectFromIUnknown({prefix}{Parameter.Name}, IID_{Parameter.Type.Name}, TRUE);";
         }
 
-        public override string GetInterfaceArgCleanup() => $"if ({Parameter.Name}) {Parameter.Name}->Release();";
+        public override IEnumerable<string> GetInterfaceArgCleanup()
+        {
+            yield return $"if ({Parameter.Name}) {Parameter.Name}->Release();";
+        }
     }
 }

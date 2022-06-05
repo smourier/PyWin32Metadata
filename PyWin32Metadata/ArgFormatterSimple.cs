@@ -19,12 +19,12 @@ namespace PyWin32Metadata
         protected override string GetUnconstType() => _unconstType;
         protected override string GetPythonTypeDesc() => _pythonTypeDesc;
         public override string GetFormatChar() => _formatChar;
-        public override string? DeclareParseArgTupleInputConverter() => null;
-        public override string? GetInterfaceArgCleanup() => null;
-        public override string? GetInterfaceArgCleanupGIL() => null;
+        public override IEnumerable<string> DeclareParseArgTupleInputConverter() { yield break; }
+        public override IEnumerable<string> GetInterfaceArgCleanup() { yield break; }
+        public override IEnumerable<string> GetInterfaceArgCleanupGIL() { yield break; }
         public override IEnumerable<string> GetParsePostCode() { yield break; }
-        public override string? GetBuildForGatewayPostCode() => null;
-        public override string? GetBuildForInterfacePreCode() => null;
-        public override string? GetBuildForInterfacePostCode() => null;
+        public override IEnumerable<string> GetBuildForGatewayPostCode() { yield break; }
+        public override IEnumerable<string> GetBuildForInterfacePreCode() { yield break; }
+        public override IEnumerable<string> GetBuildForInterfacePostCode() { yield break; }
     }
 }

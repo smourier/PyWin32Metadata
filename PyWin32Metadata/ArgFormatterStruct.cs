@@ -14,7 +14,7 @@ namespace PyWin32Metadata
 
         public ParsedStructure Structure { get; }
         public override string GetFormatChar() => "O";
-        public override string DeclareParseArgTupleInputConverter() => $"PyObject *ob{Parameter.Name};";
+        public override IEnumerable<string> DeclareParseArgTupleInputConverter() { yield return $"PyObject *ob{Parameter.Name};"; }
         public override string GetParseTupleArg() => $"&ob{Parameter.Name}";
         //public override IEnumerable<string> GetParsePostCode() { yield return $"if (bPythonIsHappy && !PyWinObject_As{Parameter.Type.Name}(ob{Parameter.Name}, &{GetIndirectedArgName(null, 0)}, FALSE) bPythonIsHappy = FALSE;"; }
         public override IEnumerable<string> GetParsePostCode()
@@ -25,31 +25,46 @@ namespace PyWin32Metadata
             var format = new List<string>();
             var args = new List<string>();
 
-            BuildParsePostCode(Structure, format, args);
-            yield return $"if (bPythonIsHappy && !PyArg_ParseTuple(ob{Parameter.Name}, \"{string.Join(string.Empty, format)}\", { string.Join(", ", args)}) bPythonIsHappy = FALSE;";
+            BuildParsePostCode(Context, this, format, args);
+            yield return $"if (bPythonIsHappy && !PyArg_ParseTuple(ob{Parameter.Name}, \"{string.Join(string.Empty, format)}\", {string.Join(", ", args)}) bPythonIsHappy = FALSE;";
         }
 
-        private void BuildParsePostCode(ParsedStructure structure, List<string> format, List<string> args)
+        private static void BuildParsePostCode(GeneratorContext context, ArgFormatterStruct structFormatter, List<string> format, List<string> args)
         {
-            foreach (var field in Structure.Fields)
+            foreach (var field in structFormatter.Structure.Fields)
             {
-                var pp = new ParsedParameter(null, field.Name, ParameterAttributes.None, 0);
-                pp.Type = field.Type.Clone();
-                var formatter = GetArgConverter(Context, pp);
-                string? formatChar;
-                if (formatter != null)
+                var pp = new ParsedParameter(null, field.Name, ParameterAttributes.None, 0)
                 {
-                    formatChar = formatter.GetFormatChar();
-                    if (formatChar == null)
-                        throw new InvalidOperationException();
+                    Type = field.Type.Clone()
+                };
+
+                string? formatChar;
+                // is it sub structure?
+                if (context.Structures.TryGetValue(field.Type.FullName, out var ps))
+                {
+                    var subFormatter = new ArgFormatterStruct(context, structFormatter.Parameter, ps, null);
+                    var subFormat = new List<string>();
+                    var subArgs = new List<string>();
+                    BuildParsePostCode(context, subFormatter, subFormat, subArgs);
+                    formatChar = "(" + string.Join(string.Empty, subFormat) + ")";
                 }
                 else
                 {
-                    formatChar = "?";
+                    var formatter = GetArgConverter(context, pp);
+                    if (formatter != null)
+                    {
+                        formatChar = formatter.GetFormatChar();
+                        if (formatChar == null)
+                            throw new InvalidOperationException();
+                    }
+                    else
+                    {
+                        formatChar = "?";
+                    }
                 }
 
                 format.Add(formatChar);
-                var a = "&" + GetIndirectedArgName(null, 0) + "->" + field.Name;
+                var a = "&" + structFormatter.GetIndirectedArgName(null, 0) + "->" + field.Name;
                 args.Add(a);
             }
         }

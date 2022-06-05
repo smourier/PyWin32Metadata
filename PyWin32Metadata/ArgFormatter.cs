@@ -51,7 +51,8 @@ namespace PyWin32Metadata
             { "PCSTR", (typeof(ArgFormatterOLECHAR), 1, 1) },
 
             { "HANDLE", (typeof(ArgFormatterHANDLE), 0, 0) },
-            
+            { "ITEMIDLIST", (typeof(ArgFormatterIDLIST), 0, 0) },
+
             { "CLSID", (typeof(ArgFormatterIID), 0, 0) },
             { "IID", (typeof(ArgFormatterIID), 0, 0) },
             { "GUID", (typeof(ArgFormatterIID), 0, 0) },
@@ -201,33 +202,66 @@ namespace PyWin32Metadata
 
         public virtual (string, string) GetInterfaceCppObjectInfo() => new(GetIndirectedArgName(BuiltinIndirection, Parameter.Type.Indirections + BuiltinIndirection.GetValueOrDefault()), $"{GetUnconstType()} {Parameter.Name}");
 
-        public virtual string? GetInterfaceArgCleanup() => $"/* GetInterfaceArgCleanup output goes here: {Parameter.Name} */";
-        public virtual string? GetInterfaceArgCleanupGIL() => $"/* GetInterfaceArgCleanup (GIL held) output goes here: {Parameter.Name} */";
-        public virtual string? DeclareParseArgTupleInputConverter() => $"/* Declare ParseArgTupleInputConverter goes here: {Parameter.Name} */";
+        public virtual IEnumerable<string> GetInterfaceArgCleanup()
+        {
+            yield return $"/* GetInterfaceArgCleanup output goes here: {Parameter.Name} */";
+        }
+
+        public virtual IEnumerable<string> GetInterfaceArgCleanupGIL()
+        {
+            yield return $"/* GetInterfaceArgCleanup (GIL held) output goes here: {Parameter.Name} */";
+        }
+
+        public virtual IEnumerable<string> DeclareParseArgTupleInputConverter()
+        {
+            yield return $"/* Declare ParseArgTupleInputConverter goes here: {Parameter.Name} */";
+        }
 
         public virtual IEnumerable<string> GetParsePostCode()
         {
             yield return $"/* GetParsePostCode code goes here: {Parameter.Name} */";
         }
 
-        public virtual string? GetBuildForInterfacePreCode() => $"/* GetBuildForInterfacePreCode goes here: {Parameter.Name} */";
-        public virtual string? GetBuildForGatewayPreCode()
+        public virtual IEnumerable<string> GetBuildForInterfacePreCode()
         {
-            var s = GetBuildForInterfacePreCode();
-            if (s?.Substring(0, 4) == "/* G")
-                return $"/* GetBuildForGatewayPreCode goes here: {Parameter.Name} */";
-
-            return s;
+            yield return $"/* GetBuildForInterfacePreCode goes here: {Parameter.Name} */";
         }
 
-        public virtual string? GetBuildForInterfacePostCode() => $"/* GetBuildForInterfacePostCode goes here: {Parameter.Name} */";
-        public virtual string? GetBuildForGatewayPostCode()
+        public virtual IEnumerable<string> GetBuildForGatewayPreCode()
         {
-            var s = GetBuildForInterfacePostCode();
-            if (s?.Substring(0, 4) == "/* G")
-                return $"/* GetBuildForGatewayPostCode goes here: {Parameter.Name} */";
+            var warning = GetBuildForInterfacePreCode().ToArray();
+            if (warning.Length > 0 && warning[0].StartsWith("/* GetBuildForInterfacePreCode goes here:"))
+            {
+                yield return $"/* GetBuildForGatewayPreCode goes here: {Parameter.Name} */";
+            }
+            else
+            {
+                foreach (var code in warning)
+                {
+                    yield return code;
+                }
+            }
+        }
 
-            return s;
+        public virtual IEnumerable<string> GetBuildForInterfacePostCode()
+        {
+            yield return $"/* GetBuildForInterfacePostCode goes here: {Parameter.Name} */";
+        }
+
+        public virtual IEnumerable<string> GetBuildForGatewayPostCode()
+        {
+            var warning = GetBuildForInterfacePostCode().ToArray();
+            if (warning.Length > 0 && warning[0].StartsWith("/* GetBuildForInterfacePostCode goes here:"))
+            {
+                yield return $"/* GetBuildForGatewayPostCode goes here: {Parameter.Name} */";
+            }
+            else
+            {
+                foreach (var code in warning)
+                {
+                    yield return code;
+                }
+            }
         }
 
         public virtual string GetAutoduckString() => $"// @pyparm {GetPythonTypeDesc()}|{Parameter.Name}||Description for {Parameter.Name}";

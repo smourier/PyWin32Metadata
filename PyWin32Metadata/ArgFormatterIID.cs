@@ -12,7 +12,7 @@ namespace PyWin32Metadata
         protected override string GetPythonTypeDesc() => "<o PyIID>";
 
         public override IEnumerable<string> GetParsePostCode() { yield return $"if (!PyWinObject_AsIID(ob{Parameter.Name}, &{Parameter.Name})) bPythonIsHappy = FALSE;"; }
-        public override string? GetBuildForInterfacePreCode() => $"ob{Parameter.Name} = PyWinObject_FromIID({GetIndirectedArgName(null, 0)});";
+        public override IEnumerable<string> GetBuildForInterfacePreCode() { yield return $"ob{Parameter.Name} = PyWinObject_FromIID({GetIndirectedArgName(null, 0)});"; }
         public override (string, string) GetInterfaceCppObjectInfo() => new(Parameter.Name, $"IID {Parameter.Name}");
     }
 }

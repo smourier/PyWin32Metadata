@@ -83,7 +83,17 @@ namespace PyWin32Metadata
                 return false;
 
             var bfn = reader.GetFullName(type.BaseType);
-            return bfn == ("System", "ValueType");
+            if (bfn != ("System", "ValueType"))
+                return false;
+
+            // if structure has only one "Value" field, it's not really a structure (WPARAM, etc.)
+            if (IsNativeTypedef(reader, type) && type.GetFields().Count == 1)
+            {
+                var field = reader.GetFieldDefinition(type.GetFields().First());
+                if (string.Compare(reader.GetString(field.Name), "value", StringComparison.OrdinalIgnoreCase) == 0)
+                    return false;
+            }
+            return true;
         }
 
         public static Guid? GetInteropGuid(this MetadataReader reader, TypeDefinition type)

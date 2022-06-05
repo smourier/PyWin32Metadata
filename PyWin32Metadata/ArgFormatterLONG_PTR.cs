@@ -11,12 +11,12 @@ namespace PyWin32Metadata
 
         protected override string GetPythonTypeDesc() => "int/long";
         public override string? GetFormatChar() => "O";
-        public override string? DeclareParseArgTupleInputConverter() => $"PyObject *ob%{Parameter.Name};";
+        public override IEnumerable<string> DeclareParseArgTupleInputConverter() { yield return $"PyObject *ob{Parameter.Name};"; }
         public override string GetParseTupleArg() => $"&ob{Parameter.Name}";
         public override string GetBuildValueArg() => $"ob{Parameter.Name}";
-        public override string? GetBuildForInterfacePostCode() => $"Py_XDECREF(ob{Parameter.Name});";
-        public override string? GetBuildForInterfacePreCode() => $"ob{Parameter.Name} = PyWinObject_FromULONG_PTR({GetIndirectedArgName(null, 1)});";
-        public override string? GetBuildForGatewayPostCode() => $"Py_XDECREF(ob{Parameter.Name});";
+        public override IEnumerable<string> GetBuildForInterfacePostCode() { yield return $"Py_XDECREF(ob{Parameter.Name});"; }
+        public override IEnumerable<string> GetBuildForInterfacePreCode() { yield return $"ob{Parameter.Name} = PyWinObject_FromULONG_PTR({GetIndirectedArgName(null, 1)});"; }
+        public override IEnumerable<string> GetBuildForGatewayPostCode() { yield return $"Py_XDECREF(ob{Parameter.Name});"; }
         public override IEnumerable<string> GetParsePostCode() { yield return $"if (bPythonIsHappy && !PyWinLong_AsULONG_PTR(ob{Parameter.Name}, (ULONG_PTR *){GetIndirectedArgName(null, 2)})) bPythonIsHappy = FALSE;"; }
     }
 }
