@@ -9,18 +9,29 @@ namespace PyWin32Metadata
         {
         }
 
+        private string IIDName
+        {
+            get
+            {
+                if (Parameter.Type.FullName == ("System", "Void"))
+                    return "IUnknown";
+
+                return Parameter.Type.Name;
+            }
+        }
+
         public override (string, string) GetInterfaceCppObjectInfo() => new(GetIndirectedArgName(1, Parameter.Type.Indirections), $"{GetUnconstType()} * {Parameter.Name}");
         public override IEnumerable<string> GetInParsePostCode()
         {
             var args = GetIndirectedArgName(GatewayMode ? null : 1, 2);
-            yield return $"if (bPythonIsHappy && !PyCom_InterfaceFromPyInstanceOrObject(ob{Parameter.Name}, IID_{Parameter.Type.Name}, (void **){args}, TRUE /* bNoneOK */)) bPythonIsHappy = FALSE;";
+            yield return $"if (bPythonIsHappy && !PyCom_InterfaceFromPyInstanceOrObject(ob{Parameter.Name}, IID_{IIDName}, (void **){args}, TRUE /* bNoneOK */)) bPythonIsHappy = FALSE;";
         }
 
-        public override IEnumerable<string> GetBuildForInterfacePreCode() { yield return $"ob{Parameter.Name} = PyCom_PyObjectFromIUnknown({Parameter.Name}, IID_{Parameter.Type.Name}, FALSE);"; }
+        public override IEnumerable<string> GetBuildForInterfacePreCode() { yield return $"ob{Parameter.Name} = PyCom_PyObjectFromIUnknown((IUnknown*){Parameter.Name}, IID_{IIDName}, FALSE);"; }
         public override IEnumerable<string> GetBuildForGatewayPreCode()
         {
             var prefix = IndirectPrefix(GetDeclaredIndirections(), 1);
-            yield return $"ob{Parameter.Name} = PyCom_PyObjectFromIUnknown({prefix}{Parameter.Name}, IID_{Parameter.Type.Name}, TRUE);";
+            yield return $"ob{Parameter.Name} = PyCom_PyObjectFromIUnknown((IUnknown*){prefix}{Parameter.Name}, IID_{IIDName}, TRUE);";
         }
 
         public override IEnumerable<string> GetInterfaceArgCleanup()

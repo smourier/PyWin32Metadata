@@ -13,7 +13,7 @@ namespace PyWin32Metadata
 
         public override IEnumerable<string> GetInParsePostCode()
         {
-            yield return $"if (bPythonIsHappy && !PyObject_AsPIDL(ob{Parameter.Name}, &{GetIndirectedArgName(null, 1)})) bPythonIsHappy = FALSE;";
+            yield return $"if (bPythonIsHappy && !PyObject_AsPIDL((LPITEMIDLIST*)ob{Parameter.Name}, &{GetIndirectedArgName(null, 1)})) bPythonIsHappy = FALSE;";
         }
 
         public override IEnumerable<string> GetInterfaceArgCleanup()

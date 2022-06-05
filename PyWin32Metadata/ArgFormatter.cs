@@ -133,7 +133,7 @@ namespace PyWin32Metadata
                 if (parameter.Type.Indirections == 1)
                     return new ArgFormatterLONG_PTR(context, parameter, 1, 0);
 
-                if (parameter.Type.Indirections == 1)
+                if (parameter.Type.Indirections == 2)
                     return new ArgFormatterInterface(context, parameter);
             }
 
@@ -182,7 +182,7 @@ namespace PyWin32Metadata
             return Parameter.Type.Indirections;
         }
 
-        protected virtual string GetUnconstType() => Parameter.Type.Name;
+        protected virtual string GetUnconstType() => Parameter.Type.GetCppName(Parameter);
         protected virtual string? GetPythonTypeDesc() => null;
         public virtual string? GetInFormatChar() => null;
         public virtual string? GetOutFormatChar() => GetInFormatChar();

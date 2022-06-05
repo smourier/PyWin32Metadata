@@ -51,70 +51,76 @@ namespace PyWin32Metadata
             }
         }
 
-        public string CppName
+        public string GetCppName(ParsedParameter? parameter)
         {
-            get
+            if (FullNameString == typeof(void).FullName)
+                return "void";
+
+            if (FullNameString == typeof(Guid).FullName)
+                return "GUID";
+
+            if (FullNameString == typeof(int).FullName)
+                return "int";
+
+            if (FullNameString == typeof(uint).FullName)
             {
-                if (FullNameString == typeof(void).FullName)
-                    return "void";
+                if (parameter?.Name.StartsWith("dw") == true)
+                    return "DWORD";
 
-                if (FullNameString == typeof(Guid).FullName)
-                    return "GUID";
-
-                if (FullNameString == typeof(int).FullName)
-                    return "int";
-
-                if (FullNameString == typeof(uint).FullName)
-                    return "unsigned int";
-
-                if (FullNameString == typeof(short).FullName)
-                    return "short";
-
-                if (FullNameString == typeof(ushort).FullName)
-                    return "unsigned short";
-
-                if (FullNameString == typeof(long).FullName)
-                    return "LONGLONG";
-
-                if (FullNameString == typeof(ulong).FullName)
-                    return "ULONGLONG";
-
-                if (FullNameString == typeof(bool).FullName)
-                    return "BOOL";
-
-                if (FullNameString == typeof(byte).FullName)
-                    return "unsigned char";
-
-                if (FullNameString == typeof(sbyte).FullName)
-                    return "char";
-
-                if (FullNameString == typeof(float).FullName)
-                    return "float";
-
-                if (FullNameString == typeof(double).FullName)
-                    return "double";
-
-                if (FullNameString == typeof(UIntPtr).FullName)
-                    return "UINT_PTR";
-
-                if (FullNameString == typeof(IntPtr).FullName)
-                    return "INT_PTR";
-
-                return Name;
+                return "unsigned int";
             }
+
+            if (FullNameString == typeof(short).FullName)
+                return "short";
+
+            if (FullNameString == typeof(ushort).FullName)
+                return "unsigned short";
+
+            if (FullNameString == typeof(long).FullName)
+                return "LONGLONG";
+
+            if (FullNameString == typeof(ulong).FullName)
+                return "ULONGLONG";
+
+            if (FullNameString == typeof(bool).FullName)
+                return "BOOL";
+
+            if (FullNameString == typeof(byte).FullName)
+                return "unsigned char";
+
+            if (FullNameString == typeof(sbyte).FullName)
+                return "char";
+
+            if (FullNameString == typeof(float).FullName)
+                return "float";
+
+            if (FullNameString == typeof(double).FullName)
+                return "double";
+
+            if (FullNameString == typeof(UIntPtr).FullName)
+                return "UINT_PTR";
+
+            if (FullNameString == typeof(IntPtr).FullName)
+                return "INT_PTR";
+
+            return Name;
         }
 
         public string GetCppWithIndirectionsName(ParsedParameter parameter)
         {
-            if (CppName == "ITEMIDLIST" && Indirections > 0)
-            {
-                if (parameter?.IsConst == true)
-                    return "LPC" + CppName + new string('*', Indirections - 1) + ArrayText;
+            if (parameter == null)
+                throw new ArgumentNullException(nameof(parameter));
 
-                return "LP" + CppName + new string('*', Indirections - 1) + ArrayText;
+            var cppName = GetCppName(parameter);
+            if (cppName == "ITEMIDLIST" && Indirections > 0)
+            {
+                if (parameter.IsConst || parameter.IsIn)
+                    return "LPC" + cppName + new string('*', Indirections - 1) + ArrayText;
+
+                return "LP" + cppName + new string('*', Indirections - 1) + ArrayText;
             }
 
-            return CppName + new string('*', Indirections) + ArrayText;
+            return cppName + new string('*', Indirections) + ArrayText;
         }
 
         public ParsedType Clone() => new(FullName)

@@ -146,7 +146,7 @@ namespace PyWin32Metadata
                     }
                     else
                     {
-                        writer.WriteLine($"STDMETHOD_({method.ReturnType.CppName}, {method.Name})({parameters});");
+                        writer.WriteLine($"STDMETHOD_({method.ReturnType.GetCppName(null)}, {method.Name})({parameters});");
                     }
                     writer.WriteLine();
                 }
@@ -261,21 +261,10 @@ namespace PyWin32Metadata
                             formatChars += formatChar;
                             argsParseTuple += ", " + cvt.GetParseTupleArg();
 
-                            foreach (var pat in cvt.DeclareParseArgTupleInputConverter())
-                            {
-                                codePythonObjects.Add(pat);
-                            }
-
+                            codePythonObjects.AddRange(cvt.DeclareParseArgTupleInputConverter());
                             codePost.AddRange(cvt.GetInParsePostCode());
-                            foreach (var acl in cvt.GetInterfaceArgCleanup())
-                            {
-                                cleanup.Add(acl);
-                            }
-
-                            foreach (var acl in cvt.GetInterfaceArgCleanupGIL())
-                            {
-                                cleanup_gil.Add(acl);
-                            }
+                            cleanup.AddRange(cvt.GetInterfaceArgCleanup());
+                            cleanup_gil.AddRange(cvt.GetInterfaceArgCleanupGIL());
                         }
                     }
 
