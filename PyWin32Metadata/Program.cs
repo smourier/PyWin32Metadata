@@ -159,8 +159,8 @@ namespace PyWin32Metadata
 
             foreach (var pi in ctx.Interfaces)
             {
-                //if (!pi.Value.Name.StartsWith("IFolderView"))
-                //    continue;
+                if (!pi.Value.Name.StartsWith("IFolderView"))
+                    continue;
 
                 //Console.WriteLine(pi.Value.Name);
                 File.WriteAllText(Path.Combine(path, "Py" + pi.Value.Name + ".h"), pi.Value.GenerateCppDeclaration(ctx));

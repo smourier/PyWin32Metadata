@@ -182,7 +182,7 @@ namespace PyWin32Metadata
             return Parameter.Type.Indirections;
         }
 
-        protected virtual string GetUnconstType() => Parameter.Type.GetCppName(Parameter);
+        protected virtual string GetUnconstType() => Parameter.Type.GetCppWithIndirectionsName(Parameter);
         protected virtual string? GetPythonTypeDesc() => null;
         public virtual string? GetInFormatChar() => null;
         public virtual string? GetOutFormatChar() => GetInFormatChar();

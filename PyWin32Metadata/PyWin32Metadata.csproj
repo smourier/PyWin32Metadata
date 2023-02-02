@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Windows.SDK.Win32Metadata" Version="22.0.14-preview" GeneratePathProperty="true" />
+    <PackageReference Include="Microsoft.Windows.SDK.Win32Metadata" Version="41.0.25-preview" GeneratePathProperty="true" />
   </ItemGroup>
 
   <Target Name="CreateWin32MetadataFile" BeforeTargets="CoreCompile">
